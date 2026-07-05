@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>精確射程輻射模擬 (Alpha 6cm, Beta 6m)</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-color: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #f39c12;
+            --danger-color: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            margin: 0; padding: 10px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+
+        .main-container {
+            display: flex; flex: 1; gap: 15px; height: calc(100% - 10px);
+        }
+
+        .panel {
+            background: var(--panel-color); border-radius: 8px;
+            padding: 15px; border: 1px solid #333;
+            display: flex; flex-direction: column;
+        }
+
+        .col-control { flex: 1; min-width: 280px; overflow-y: auto; }
+        .col-simulation { 
+            flex: 3; position: relative; padding: 0; 
+            background: #000; border: 2px solid #444; border-radius: 8px;
+            overflow: hidden;
+        }
+        .col-data { flex: 1.5; font-size: 0.9rem; display: flex; flex-direction: column; }
+
+        /* UI Controls */
+        .control-group { 
+            margin-bottom: 15px; padding: 12px; 
+            background: #2c2c2c; border-radius: 6px; 
+            border-left: 3px solid var(--accent-color);
+        }
+        label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 0.9rem; }
+        
+        .checkbox-group { display: flex; gap: 5px; }
+        .chk-btn {
+            flex: 1; padding: 8px; text-align: center; cursor: pointer;
+            background: #3a3a3a; border: 1px solid #555; border-radius: 4px;
+            font-weight: bold; transition: 0.2s; font-size: 0.9rem; user-select: none;
+        }
+        .chk-btn input { display: none; }
+        .chk-btn:hover { background: #4a4a4a; }
+        
+        .chk-btn.active-alpha { border-color: #e74c3c; background: #641e16; color: #fff; }
+        .chk-btn.active-beta { border-color: #3498db; background: #154360; color: #fff; }
+        .chk-btn.active-gamma { border-color: #2ecc71; background: #186a3b; color: #fff; }
+
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--accent-color); margin-top: 8px; }
+
+        /* Simulation Area */
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .geiger-display {
+            position: absolute; top: 15px; right: 15px;
+            background: #111; border: 2px solid #444; border-radius: 6px;
+            padding: 8px 15px; text-align: right; font-family: 'Courier New', monospace;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.6); z-index: 10;
+        }
+        .geiger-val { font-size: 2rem; color: var(--accent-color); font-weight: bold; }
+        .led-indicator {
+            display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+            background: #400; margin-right: 8px; vertical-align: middle;
+        }
+        .led-on { background: #f00; box-shadow: 0 0 8px #f00; }
+
+        .scale-indicator {
+            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: #ccc; padding: 4px 12px; border-radius: 12px;
+            font-family: monospace; font-size: 0.8rem; pointer-events: none; border: 1px solid #555;
+        }
+        
+        /* Table */
+        .table-container { flex: 1; overflow-y: auto; margin-top: 5px; border-top: 1px solid #333; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 6px 4px; text-align: center; border-bottom: 1px solid #333; }
+        th { background: #252525; color: var(--accent-color); position: sticky; top: 0; }
+        
+        button {
+            background: var(--accent-color); color: #000; border: none; padding: 8px;
+            width: 100%; font-weight: bold; cursor: pointer; border-radius: 4px; margin-top: 5px;
+        }
+        button:hover { filter: brightness(1.1); }
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <div class="panel col-control">
+            <h3 style="color:var(--accent-color); margin:0 0 15px 0;">☢️ 輻射射程實驗室</h3>
+            
+            <div class="control-group">
+                <label>1. 輻射源成分 (混合可選):</label>
+                <div class="checkbox-group">
+                    <label class="chk-btn" id="btn-alpha">
+                        <input type="checkbox" onchange="toggleSource('alpha')" checked> α
+                    </label>
+                    <label class="chk-btn" id="btn-beta">
+                        <input type="checkbox" onchange="toggleSource('beta')"> β
+                    </label>
+                    <label class="chk-btn" id="btn-gamma">
+                        <input type="checkbox" onchange="toggleSource('gamma')"> γ
+                    </label>
+                </div>
+                <div id="source-desc" style="font-size: 0.8rem; color:#888; margin-top:8px; line-height:1.4;">
+                    α 空氣射程: 6 cm<br>
+                    β 空氣射程: 6 m<br>
+                    γ 穿透力: 極強 (平方反比)
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>2. 阻擋物:</label>
+                <select id="select-barrier" onchange="updateSim()" style="width:100%; padding:6px; background:#444; color:white; border:none; border-radius:4px;">
+                    <option value="none">無 (僅空氣)</option>
+                    <option value="paper">紙張 (Paper)</option>
+                    <option value="aluminum">鋁板 (Aluminum)</option>
+                    <option value="lead">鉛板 (Lead)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>3. 距離 (1cm - 50m):</label>
+                <div style="font-size:1.4rem; color:var(--accent-color); font-weight:bold; margin-bottom:5px;" id="val-dist">
+                    10.0 cm
+                </div>
+                <input type="range" id="input-dist" min="0" max="1000" value="150" oninput="updateDistFromSlider()">
+                
+                <div style="position: relative; height: 15px; margin-top: 5px; font-size: 0.7rem; color: #666;">
+                    <span style="position: absolute; left: 0;">1cm</span>
+                    <span style="position: absolute; left: 15%; transform:translateX(-50%);">6cm</span>
+                    <span style="position: absolute; left: 50%; transform:translateX(-50%);">6m</span>
+                    <span style="position: absolute; right: 0;">50m</span>
+                </div>
+            </div>
+
+            <div class="control-group" style="border-left-color: #e74c3c; display:flex; align-items:center;">
+                <input type="checkbox" id="chk-sound" style="width:16px; height:16px; margin-right:10px; accent-color:#e74c3c;"> 
+                <label for="chk-sound" style="margin:0; cursor:pointer;">開啟蓋革計數聲</label>
+            </div>
+        </div>
+
+        <div class="panel col-simulation">
+            <canvas id="simCanvas"></canvas>
+            
+            <div class="geiger-display">
+                <div style="display:flex; align-items:center; justify-content:end; margin-bottom:2px;">
+                    <span id="led" class="led-indicator"></span>
+                    <span style="color:#666; font-size:0.7rem;">COUNT RATE</span>
+                </div>
+                <div id="cpm-display" class="geiger-val">0</div>
+                <div style="color:#444; font-size:0.6rem; letter-spacing:1px;">CPM</div>
+            </div>
+
+            <div class="scale-indicator" id="scale-indicator">
+                Zoom: Auto
+            </div>
+            
+            <div style="position:absolute; left:10px; bottom:10px; color:#555; font-size:0.75rem; font-weight:bold;">SOURCE</div>
+            <div style="position:absolute; right:10px; bottom:10px; color:#555; font-size:0.75rem; font-weight:bold;">DETECTOR</div>
+        </div>
+
+        <div class="panel col-data">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0;">📋 數據表</h3>
+                <button onclick="recordData()" style="width:auto; padding:5px 15px; font-size:0.8rem;">記錄</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>源</th><th>距離</th><th>CPM</th><th>備註</th></tr>
+                    </thead>
+                    <tbody id="data-table"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const cpmDisplay = document.getElementById('cpm-display');
+        const led = document.getElementById('led');
+        const scaleIndicator = document.getElementById('scale-indicator');
+        const distSlider = document.getElementById('input-dist');
+        
+        let activeSources = new Set(['alpha']);
+        
+        let state = {
+            barrier: 'none',
+            distMeters: 0.1, 
+            cpm: 0,
+            particles: [],
+            pxPerMeter: 100
+        };
+
+        // === 核心物理參數修正 ===
+        const PHYSICS = {
+            alpha: { 
+                color: '#e74c3c', 
+                speed: 2, 
+                range: 0.06, // 修正：6 cm
+                desc: 'Range ~6cm'
+            },
+            beta:  { 
+                color: '#3498db', 
+                speed: 5, 
+                range: 6.0,  // 修正：6 m
+                desc: 'Range ~6m'
+            },
+            gamma: { 
+                color: '#2ecc71', 
+                speed: 9, 
+                range: 5000, // 實際上無限遠，模擬中設很大
+                desc: 'Inverse Square'
+            }
+        };
+
+        const BARRIER_INFO = {
+            paper: { blocked: ['alpha'], attenuate: { beta: 0.8, gamma: 1.0 } },
+            aluminum: { blocked: ['alpha', 'beta'], attenuate: { gamma: 0.98 } },
+            lead: { blocked: ['alpha', 'beta'], attenuate: { gamma: 0.1 } } // Lead attenuates Gamma significantly
+        };
+
+        const BACKGROUND_CPM = 20;
+        const SOURCE_X = 60; 
+        let audioCtx = null;
+
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            updateUIState();
+            updateDistFromSlider();
+            loop();
+        }
+
+        function resizeCanvas() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+
+        function toggleSource(type) {
+            const checkbox = document.querySelector(`#btn-${type} input`);
+            if (checkbox.checked) activeSources.add(type);
+            else activeSources.delete(type);
+            updateUIState();
+            updateSim();
+        }
+
+        function updateUIState() {
+            ['alpha', 'beta', 'gamma'].forEach(type => {
+                const btn = document.getElementById(`btn-${type}`);
+                if (activeSources.has(type)) btn.classList.add(`active-${type}`);
+                else btn.classList.remove(`active-${type}`);
+            });
+        }
+
+        // === 距離計算 (優化滑桿手感) ===
+        // 我們希望 6cm 和 6m 容易被選中
+        // 使用分段函數或精心調整的冪函數
+        function updateDistFromSlider() {
+            const val = parseInt(distSlider.value);
+            const ratio = val / 1000;
+            
+            let d = 0;
+            // 0.01m (1cm) 到 50m
+            // 為了讓 6cm (0.06m) 和 6m 出現在合理位置，我們使用 exponential scale
+            // dist = 0.01 * (5000 ^ ratio)
+            // if ratio=0, d=0.01
+            // if ratio=1, d=50
+            // 0.06m (6cm) approx ratio 0.2
+            // 6.0m approx ratio 0.75
+            d = 0.01 * Math.pow(5000, ratio);
+
+            state.distMeters = d;
+
+            // 格式化顯示
+            let text = "";
+            if (d < 1) text = (d * 100).toFixed(1) + " cm";
+            else text = d.toFixed(2) + " m";
+            
+            document.getElementById('val-dist').textContent = text;
+            updateSim();
+        }
+
+        function updateSim() {
+            state.barrier = document.getElementById('select-barrier').value;
+
+            // Auto-Scaling: 計算像素/公尺
+            const targetDetectorX = canvas.width * 0.85;
+            const screenDistance = targetDetectorX - SOURCE_X;
+            state.pxPerMeter = screenDistance / state.distMeters;
+
+            // 比例尺 UI 更新
+            let unit = "1 m";
+            let pixels = state.pxPerMeter;
+            
+            if (state.distMeters < 0.2) { 
+                unit = "1 cm"; pixels = state.pxPerMeter * 0.01; 
+            } else if (state.distMeters < 10) { 
+                unit = "10 cm"; pixels = state.pxPerMeter * 0.1; 
+            }
+            
+            // 限制長度
+            if (pixels > 150) { pixels/=10; unit = "0.1 " + unit.split(' ')[1]; }
+            
+            scaleIndicator.textContent = `Scale: ${pixels.toFixed(0)}px = ${unit}`;
+
+            calculateCPM();
+        }
+
+        // === CPM 計算邏輯 (核心更新) ===
+        function calculateCPM() {
+            const d = state.distMeters;
+            let totalCPM = 0;
+
+            // 1. Alpha Calculation (Range ~6cm)
+            if (activeSources.has('alpha')) {
+                let val = 0;
+                // 在 6cm 處急劇截止
+                if (d <= 0.06) {
+                    // 近距離非常高
+                    val = 15000; 
+                } else if (d <= 0.07) {
+                    // 邊緣效應
+                    val = 1000 * (1 - (d - 0.06)/0.01);
+                }
+                
+                // 阻擋判斷
+                if (state.barrier !== 'none') val = 0; // Alpha 被任何東西阻擋
+                totalCPM += val;
+            }
+
+            // 2. Beta Calculation (Range ~6m)
+            if (activeSources.has('beta')) {
+                let val = 0;
+                // 在 6m 處截止
+                if (d <= 6.0) {
+                    // 線性衰減模擬空氣阻擋
+                    // 近距離設為 8000
+                    val = 8000 * (1 - (d / 6.0));
+                }
+                
+                // 阻擋判斷
+                if (state.barrier === 'paper') val *= 0.8; // 紙擋掉一點
+                if (['aluminum', 'lead'].includes(state.barrier)) val = 0; // 鋁鉛完全擋
+                
+                totalCPM += Math.max(0, val);
+            }
+
+            // 3. Gamma Calculation (Inverse Square)
+            if (activeSources.has('gamma')) {
+                let val = 0;
+                // K / d^2
+                val = 4000 / (d * d + 0.02); // +0.02 防止近距離無限大
+
+                // 阻擋判斷
+                if (state.barrier === 'lead') val *= 0.1; // 鉛擋掉大部分
+                // 鋁和紙幾乎不擋
+                
+                totalCPM += val;
+            }
+
+            // 4. 噪音與背景
+            const noise = (Math.random() - 0.5) * 0.1 * totalCPM;
+            state.cpm = Math.floor(Math.max(BACKGROUND_CPM, totalCPM + noise + BACKGROUND_CPM));
+            if (state.cpm > 99999) state.cpm = 99999;
+            
+            cpmDisplay.textContent = state.cpm;
+        }
+
+        // === 渲染 ===
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const detectorX = SOURCE_X + state.distMeters * state.pxPerMeter;
+            const barrierX = SOURCE_X + (detectorX - SOURCE_X) * 0.3; // 阻擋物放在 30% 路徑處
+
+            drawGrid();
+            drawSource(SOURCE_X, canvas.height/2);
+            drawDetector(detectorX, canvas.height/2);
+            if (state.barrier !== 'none') drawBarrier(barrierX, canvas.height/2, state.barrier);
+
+            // 粒子生成
+            if (activeSources.size > 0 && Math.random() > 0.4) {
+                const types = Array.from(activeSources);
+                const type = types[Math.floor(Math.random() * types.length)];
+                spawnParticle(type);
+            }
+
+            updateParticles(detectorX, barrierX);
+
+            // 音效觸發
+            // 這裡做一個簡單的頻率模擬：CPM 越高，觸發機率越高
+            // 當 CPM = 60000 (即 1000/s)，每幀都應該響
+            let p = state.cpm / 3600; // 每秒點擊數 / 60fps
+            if (Math.random() < p) triggerGeigerClick();
+
+            requestAnimationFrame(loop);
+        }
+
+        function drawGrid() {
+            // 地平線
+            ctx.strokeStyle = "#333"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, canvas.height/2 + 50); ctx.lineTo(canvas.width, canvas.height/2 + 50); ctx.stroke();
+            
+            // 畫兩個關鍵距離標記 (如果它們在畫面上)
+            drawMark(0.06, "6cm (α max)", "#522"); // Alpha Range
+            drawMark(6.0, "6m (β max)", "#234");  // Beta Range
+        }
+
+        function drawMark(meters, label, color) {
+            const x = SOURCE_X + meters * state.pxPerMeter;
+            if (x > SOURCE_X && x < canvas.width) {
+                ctx.fillStyle = color;
+                ctx.fillRect(x, canvas.height/2 + 45, 2, 10);
+                ctx.fillStyle = "#666"; ctx.font = "9px Arial";
+                ctx.fillText(label, x - 20, canvas.height/2 + 70);
+            }
+        }
+
+        function spawnParticle(type) {
+            const angle = (Math.random() - 0.5) * 0.25; 
+            state.particles.push({
+                x: SOURCE_X + 20,
+                y: canvas.height/2,
+                // 視覺速度：為了讓動畫好看，不要讓速度差異太大，但仍要有區別
+                vx: Math.cos(angle) * (PHYSICS[type].speed + 3), 
+                vy: Math.sin(angle) * (PHYSICS[type].speed + 3),
+                travelDist: 0,
+                life: 1.0,
+                type: type
+            });
+        }
+
+        function updateParticles(detectorX, barrierX) {
+            // 在遠距離模式下，粒子移動速度不能太快以免穿幫，也不能太慢
+            // 這裡用一個 dynamic factor
+            // 但物理距離 travelDist 必須嚴格計算
+            
+            for (let i = state.particles.length - 1; i >= 0; i--) {
+                let p = state.particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                
+                // 將像素移動轉換為物理距離 (meters)
+                const distStep = p.vx / state.pxPerMeter;
+                p.travelDist += distStep;
+
+                // **關鍵修正：空氣射程判定**
+                if (p.travelDist > PHYSICS[p.type].range) {
+                    p.life -= 0.2; // 迅速消失
+                }
+
+                // 阻擋物判定
+                if (state.barrier !== 'none' && p.x > barrierX && p.x < barrierX + 15) {
+                    let blocked = false;
+                    const bType = state.barrier;
+                    
+                    if (PHYSICS[p.type].type === 'gamma' && bType === 'lead') {
+                         blocked = Math.random() > 0.1; 
+                    } else if (BARRIER_INFO[bType].blocked.includes(p.type)) {
+                        blocked = true;
+                    }
+                    
+                    if (blocked) {
+                        p.life = 0;
+                        ctx.fillStyle = "#fff"; ctx.fillRect(p.x, p.y, 2, 2); // spark
+                    }
+                }
+
+                // 探測器吸收
+                if (p.x > detectorX && p.x < detectorX + 30) p.life = 0;
+
+                // 繪製
+                ctx.globalAlpha = Math.max(0, p.life);
+                ctx.fillStyle = PHYSICS[p.type].color;
+                
+                // 粒子大小隨視角變化，避免在 50m 時粒子顯得巨大
+                let size = (state.pxPerMeter < 100) ? 1.5 : 2.5; 
+
+                if (p.type === 'gamma') {
+                    ctx.beginPath(); ctx.moveTo(p.x-8, p.y); ctx.lineTo(p.x, p.y);
+                    ctx.strokeStyle = PHYSICS[p.type].color; ctx.lineWidth = size; ctx.stroke();
+                } else {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, size, 0, Math.PI*2); ctx.fill();
+                }
+                ctx.globalAlpha = 1.0;
+
+                if (p.life <= 0 || p.x > canvas.width) state.particles.splice(i, 1);
+            }
+        }
+
+        function drawSource(x, y) {
+            ctx.fillStyle = "#333"; ctx.fillRect(x-25, y-25, 50, 50);
+            
+            // 顯示當前啟動的顏色
+            if (activeSources.size > 0) {
+                // 畫一個混合色的核心
+                ctx.fillStyle = "#fff";
+                ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI*2); ctx.fill();
+                
+                ctx.fillStyle = "rgba(255, 200, 0, 0.3)";
+                ctx.beginPath(); ctx.arc(x, y, 20 + Math.random()*3, 0, Math.PI*2); ctx.fill();
+            } else {
+                ctx.fillStyle = "#111";
+                ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        function drawDetector(x, y) {
+            ctx.fillStyle = "#444"; ctx.fillRect(x, y-20, 50, 40);
+            ctx.fillStyle = "#111"; ctx.fillRect(x, y-15, 8, 30);
+            ctx.strokeStyle = "#555"; ctx.beginPath(); ctx.moveTo(x+25, y+20); ctx.lineTo(x+25, y+50); ctx.stroke();
+        }
+
+        function drawBarrier(x, y, type) {
+            let color = '#fff'; let w = 4;
+            if (type === 'paper') { color = '#ddd'; w=2; }
+            if (type === 'aluminum') { color = '#95a5a6'; w=8; }
+            if (type === 'lead') { color = '#34495e'; w=12; }
+            ctx.fillStyle = color; ctx.fillRect(x, y-70, w, 140);
+            
+            if (state.pxPerMeter > 20) {
+                ctx.fillStyle = "#aaa"; ctx.font = "10px Arial"; 
+                ctx.fillText(type.substr(0,1).toUpperCase(), x-5, y-75);
+            }
+        }
+
+        function triggerGeigerClick() {
+            led.classList.add('led-on');
+            setTimeout(() => led.classList.remove('led-on'), 30);
+            if (document.getElementById('chk-sound').checked) playClickSound();
+        }
+
+        function playClickSound() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square'; // 方波聽起來更像機械噪音
+            // 隨機頻率讓聲音不那麼單調
+            osc.frequency.setValueAtTime(150 + Math.random()*300, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.03);
+        }
+
+        function recordData() {
+            const row = `<tr>
+                <td>${Array.from(activeSources).join('+') || '-'}</td>
+                <td>${document.getElementById('val-dist').textContent}</td>
+                <td>${state.cpm}</td>
+                <td style="font-size:0.75rem; color:#888;">${state.barrier}</td>
+            </tr>`;
+            document.getElementById('data-table').insertAdjacentHTML('afterbegin', row);
+        }
+
+        init();
+    </script>
+</body>
+</html>
