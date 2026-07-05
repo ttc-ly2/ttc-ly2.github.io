@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Wave Interference Simulation & Quiz</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-dark: #0f172a;
+            --panel-bg: #ffffff;
+            --text-main: #1e293b;
+            --border-color: #cbd5e1;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f8fafc;
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        /* Upper Row: Controls Panel */
+        .upper-row {
+            background-color: var(--panel-bg);
+            padding: 15px 25px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+            z-index: 10;
+        }
+
+        .sliders-group {
+            display: flex;
+            gap: 20px;
+            flex-grow: 1;
+            max-width: 800px;
+        }
+
+        .slider-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 180px;
+        }
+
+        .slider-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .slider-container input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .buttons-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        button {
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        }
+
+        .btn-toggle {
+            background-color: #f1f5f9;
+            color: #334155;
+            border-color: var(--border-color);
+        }
+        .btn-toggle:hover {
+            background-color: #e2e8f0;
+        }
+
+        .btn-quiz {
+            background-color: #059669;
+            color: white;
+        }
+        .btn-quiz:hover {
+            background-color: #047857;
+        }
+
+        .btn-reset {
+            background-color: #dc2626;
+            color: white;
+        }
+        .btn-reset:hover {
+            background-color: #b91c1c;
+        }
+
+        /* Lower Row: Simulation Layout */
+        .lower-row {
+            flex: 1;
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .sim-container {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            position: relative;
+        }
+
+        .sim-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .checkbox-container input {
+            accent-color: var(--primary);
+            width: 16px;
+            height: 16px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            background: #000;
+            border-radius: 6px;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Info Display Panel */
+        .info-panel {
+            flex: 1;
+            min-width: 280px;
+            max-width: 380px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 8px;
+            color: #0f172a;
+        }
+
+        .data-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        .data-label {
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .data-value {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .interference-status {
+            margin-top: 10px;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .status-constructive {
+            background-color: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+
+        .status-destructive {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+        }
+
+        .status-none {
+            background-color: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            font-weight: 500;
+        }
+
+        /* Quiz Modal Popup Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .quiz-card {
+            background: white;
+            width: 90%;
+            max-width: 550px;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+            padding: 25px;
+            position: relative;
+        }
+
+        .quiz-view {
+            display: none;
+        }
+
+        .quiz-view.active {
+            display: block;
+        }
+
+        .quiz-card h2 {
+            margin-bottom: 15px;
+            color: #0f172a;
+        }
+
+        .input-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 15px;
+        }
+
+        .input-field label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .input-field input {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .btn-start-game {
+            width: 100%;
+            background-color: #2563eb;
+            color: white;
+            padding: 12px;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+
+        .question-text {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #1e293b;
+            min-height: 60px;
+        }
+
+        .options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .option-item:hover {
+            background-color: #f8fafc;
+        }
+
+        .option-item input {
+            accent-color: var(--primary);
+        }
+
+        .quiz-progress {
+            font-size: 0.85rem;
+            color: #64748b;
+            text-align: right;
+            margin-top: 15px;
+        }
+
+        .btn-next {
+            background-color: var(--primary);
+            color: white;
+            float: right;
+        }
+
+        .results-summary {
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .score-big {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #059669;
+            margin: 10px 0;
+        }
+        
+        .submission-status {
+            font-size: 0.9rem;
+            color: #475569;
+            margin-top: 20px;
+            font-style: italic;
+            min-height: 25px;
+        }
+
+        .results-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #94a3b8;
+            box-shadow: none;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="upper-row">
+        <div class="sliders-group">
+            <div class="slider-container">
+                <label class="slider-label">Frequency (f): <span id="val-freq">30 Hz</span></label>
+                <input type="range" id="slide-freq" min="10" max="50" value="30" step="1">
+            </div>
+            <div class="slider-container">
+                <label class="slider-label">Source Distance (d): <span id="val-dist">4.0 cm</span></label>
+                <input type="range" id="slide-dist" min="1.0" max="8.0" value="4.0" step="0.1">
+            </div>
+            <div class="slider-container">
+                <label class="slider-label">Wave Speed (v): <span id="val-speed">30 cm/s</span></label>
+                <input type="range" id="slide-speed" min="15" max="60" value="30" step="1">
+            </div>
+        </div>
+
+        <div class="buttons-group">
+            <button id="btn-phase" class="btn-toggle">Phase: In Phase</button>
+            <button id="btn-start-quiz" class="btn-quiz">Start a Quiz</button>
+            <button id="btn-reset" class="btn-reset">Reset Everything</button>
+        </div>
+    </div>
+
+    <div class="lower-row">
+        <div class="sim-container">
+            <div class="sim-header">
+                <div style="font-weight: 700; font-size: 1rem; color: #334155;">Ripple Tank Interference Field (Slow Motion)</div>
+                <div class="checkbox-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="check-antinodal" checked>
+                        <span style="color: #ef4444;">Anti-nodal Lines</span>
+                    </label>
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="check-nodal" checked>
+                        <span style="color: #3b82f6;">Nodal Lines</span>
+                    </label>
+                </div>
+            </div>
+            <div class="canvas-wrapper" id="canvas-container">
+                <canvas id="simCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <div class="panel-title">System Metrics</div>
+            <div class="data-item">
+                <span class="data-label">Wavelength (λ)</span>
+                <span class="data-value" id="lbl-lambda">1.00 cm</span>
+            </div>
+
+            <div class="panel-title" style="margin-top: 10px;">Marked Target Point</div>
+            <div id="point-metrics">
+                <div class="data-item">
+                    <span class="data-label">Coordinates</span>
+                    <span class="data-value" id="lbl-coord">Click on map to mark</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Distance from S1 (r1)</span>
+                    <span class="data-value" id="lbl-r1">-</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Distance from S2 (r2)</span>
+                    <span class="data-value" id="lbl-r2">-</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Path Difference (|r1 - r2|)</span>
+                    <span class="data-value" id="lbl-pd">-</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Path Diff in λ</span>
+                    <span class="data-value" id="lbl-pd-lambda">-</span>
+                </div>
+                <div id="lbl-int-type" class="interference-status status-none">No Point Selected</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="quiz-modal">
+        <div class="quiz-card">
+            <button class="close-modal" id="btn-close-modal">&times;</button>
+            
+            <div class="quiz-view active" id="view-login">
+                <h2>HK DSE S5 Physics Quiz</h2>
+                <p style="color: #64748b; margin-bottom: 20px; font-size: 0.9rem;">Topic: Wave Interference Patterns & Path Difference Conditions.</p>
+                <div class="input-field">
+                    <label for="student-class">Class (e.g., 5A, 5B)</label>
+                    <input type="text" id="student-class" placeholder="Enter Class Name" required>
+                </div>
+                <div class="input-field">
+                    <label for="student-number">Class Number</label>
+                    <input type="number" id="student-number" min="1" max="45" placeholder="Enter Class Number" required>
+                </div>
+                <button id="btn-login-submit" class="btn-start-game">Begin Examination</button>
+            </div>
+
+            <div class="quiz-view" id="view-questions">
+                <h2 style="font-size: 1.2rem; margin-bottom: 5px; color: var(--primary);">Assessment Question</h2>
+                <div id="question-box">
+                    </div>
+                <button id="btn-question-next" class="btn-next">Next Question &rarr;</button>
+                <div class="quiz-progress" id="quiz-progress-lbl">Question 1 of 15</div>
+            </div>
+
+            <div class="quiz-view" id="view-results">
+                <h2>Performance Assessment Finished</h2>
+                <div class="results-summary">
+                    <p>Your Total Score Calculated:</p>
+                    <div class="score-big" id="final-score-lbl">0 / 15</div>
+                    <p style="font-weight: 500;" id="student-summary-lbl">Class: - | Number: -</p>
+                    
+                    <div class="results-actions">
+                        <button id="btn-quiz-retry" class="btn-toggle" style="padding: 12px 24px;">Retry Quiz</button>
+                        <button id="btn-quiz-finish" class="btn-quiz" style="padding: 12px 24px;">Finish & Save Mark</button>
+                    </div>
+                    
+                    <p class="submission-status" id="upload-status-lbl">Please choose to retry the quiz or submit your score to the database.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CORE APPLICATION STATES ---
+        let freq = 30;         // Hz
+        let distance = 4.0;    // cm
+        let speed = 30;        // cm/s
+        let isInPhase = true;  // In-Phase vs Anti-Phase
+        let lambda = 1.0;      // calculated cm
+        
+        let showAntinodal = true;
+        let showNodal = true;
+        let markedPoint = null; // {x_px, y_px}
+
+        // Fixed Engine Configurations
+        const pixelsPerCm = 45; // Screen scale matrix multiplier
+        let canvas, ctx;
+        let animationFrameId;
+
+        // Optimized resampling engine scale factor
+        const scaleDownFactor = 4; 
+        let bufferCanvas, bufferCtx;
+
+        // --- DOM REFERENCE HOOKS ---
+        let slideFreq, slideDist, slideSpeed, valFreq, valDist, valSpeed, lblLambda, btnPhase, btnReset;
+        let checkAntinodal, checkNodal;
+        let lblCoord, lblR1, lblR2, lblPd, lblPdLambda, lblIntType;
+
+        function initSimulation() {
+            canvas = document.getElementById('simCanvas');
+            if (!canvas) return;
+            
+            ctx = canvas.getContext('2d');
+            bufferCanvas = document.createElement('canvas');
+            bufferCtx = bufferCanvas.getContext('2d');
+
+            // Hook DOM elements explicitly
+            slideFreq = document.getElementById('slide-freq');
+            slideDist = document.getElementById('slide-dist');
+            slideSpeed = document.getElementById('slide-speed');
+            valFreq = document.getElementById('val-freq');
+            valDist = document.getElementById('val-dist');
+            valSpeed = document.getElementById('val-speed');
+            lblLambda = document.getElementById('lbl-lambda');
+            btnPhase = document.getElementById('btn-phase');
+            btnReset = document.getElementById('btn-reset');
+            checkAntinodal = document.getElementById('check-antinodal');
+            checkNodal = document.getElementById('check-nodal');
+            lblCoord = document.getElementById('lbl-coord');
+            lblR1 = document.getElementById('lbl-r1');
+            lblR2 = document.getElementById('lbl-r2');
+            lblPd = document.getElementById('lbl-pd');
+            lblPdLambda = document.getElementById('lbl-pd-lambda');
+            lblIntType = document.getElementById('lbl-int-type');
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Add Click Interactivity Coordinate Grabber
+            document.getElementById('canvas-container').addEventListener('click', handleCanvasClick);
+
+            // Hook Control Event Pipelines
+            slideFreq.addEventListener('input', (e) => { freq = parseInt(e.target.value); valFreq.innerText = freq + " Hz"; updateSystemParams(); });
+            slideDist.addEventListener('input', (e) => { distance = parseFloat(e.target.value); valDist.innerText = distance.toFixed(1) + " cm"; updateSystemParams(); });
+            slideSpeed.addEventListener('input', (e) => { speed = parseInt(e.target.value); valSpeed.innerText = speed + " cm/s"; updateSystemParams(); });
+            
+            btnPhase.addEventListener('click', () => {
+                isInPhase = !isInPhase;
+                btnPhase.innerText = isInPhase ? "Phase: In Phase" : "Phase: Anti-Phase";
+                btnPhase.style.backgroundColor = isInPhase ? "#f1f5f9" : "#fef08a";
+            });
+
+            btnReset.addEventListener('click', resetSimulationData);
+            checkAntinodal.addEventListener('change', (e) => showAntinodal = e.target.checked);
+            checkNodal.addEventListener('change', (e) => showNodal = e.target.checked);
+
+            updateSystemParams();
+            animateSimulation();
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('canvas-container');
+            if (!container || !canvas) return;
+            canvas.width = container.clientWidth || 600;
+            canvas.height = container.clientHeight || 400;
+            
+            bufferCanvas.width = Math.ceil(canvas.width / scaleDownFactor);
+            bufferCanvas.height = Math.ceil(canvas.height / scaleDownFactor);
+        }
+
+        function updateSystemParams() {
+            lambda = speed / freq;
+            if (lblLambda) lblLambda.innerText = lambda.toFixed(2) + " cm";
+        }
+
+        function resetSimulationData() {
+            freq = 30; slideFreq.value = 30; valFreq.innerText = "30 Hz";
+            distance = 4.0; slideDist.value = 4.0; valDist.innerText = "4.0 cm";
+            speed = 30; slideSpeed.value = 30; valSpeed.innerText = "30 cm/s";
+            isInPhase = true;
+            btnPhase.innerText = "Phase: In Phase";
+            btnPhase.style.backgroundColor = "#f1f5f9";
+            showAntinodal = true; checkAntinodal.checked = true;
+            showNodal = true; checkNodal.checked = true;
+            markedPoint = null;
+            
+            lblCoord.innerText = "Click on map to mark";
+            lblR1.innerText = "-"; lblR2.innerText = "-"; lblPd.innerText = "-"; lblPdLambda.innerText = "-";
+            lblIntType.innerText = "No Point Selected";
+            lblIntType.className = "interference-status status-none";
+            
+            updateSystemParams();
+        }
+
+        function handleCanvasClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            markedPoint = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function animateSimulation() {
+            // SLOW MOTION FIX: Multiply performance timestamp scaling by 0.25 to reduce movement speeds significantly
+            const time = (performance.now() / 1000) * 0.25;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const sourceOffsetPx = (distance * pixelsPerCm) / 2;
+
+            const s1 = { x: centerX - sourceOffsetPx, y: centerY };
+            const s2 = { x: centerX + sourceOffsetPx, y: centerY };
+
+            renderWaveFieldBuffer(s1, s2, time);
+            renderAnalyticalLines(s1, s2, centerX, centerY);
+
+            if (markedPoint) {
+                processLiveMetrics(s1, s2);
+            }
+
+            animationFrameId = requestAnimationFrame(animateSimulation);
+        }
+
+        function renderWaveFieldBuffer(s1, s2, time) {
+            const bW = bufferCanvas.width;
+            const bH = bufferCanvas.height;
+            if (bW === 0 || bH === 0) return;
+            
+            const imgData = bufferCtx.createImageData(bW, bH);
+            const data = imgData.data;
+
+            const phaseShift = isInPhase ? 0 : Math.PI;
+            const bS1x = s1.x / scaleDownFactor;
+            const bS1y = s1.y / scaleDownFactor;
+            const bS2x = s2.x / scaleDownFactor;
+            const bS2y = s2.y / scaleDownFactor;
+
+            let index = 0;
+            for (let y = 0; y < bH; y++) {
+                for (let x = 0; x < bW; x++) {
+                    const rx1 = (x - bS1x) * scaleDownFactor / pixelsPerCm;
+                    const ry1 = (y - bS1y) * scaleDownFactor / pixelsPerCm;
+                    const r1 = Math.sqrt(rx1*rx1 + ry1*ry1);
+
+                    const rx2 = (x - bS2x) * scaleDownFactor / pixelsPerCm;
+                    const ry2 = (y - bS2y) * scaleDownFactor / pixelsPerCm;
+                    const r2 = Math.sqrt(rx2*rx2 + ry2*ry2);
+
+                    const wave1 = Math.sin(2 * Math.PI * (r1 / lambda - freq * time));
+                    const wave2 = Math.sin(2 * Math.PI * (r2 / lambda - freq * time) + phaseShift);
+                    const amplitude = (wave1 + wave2) / 2; 
+
+                    const brightness = Math.floor(128 + amplitude * 120);
+                    
+                    data[index] = Math.max(0, Math.min(255, brightness * 0.35));     
+                    data[index + 1] = Math.max(0, Math.min(255, brightness * 0.65)); 
+                    data[index + 2] = Math.max(0, Math.min(255, brightness));        
+                    data[index + 3] = 255;                                           
+                    index += 4;
+                }
+            }
+            bufferCtx.putImageData(imgData, 0, 0);
+            ctx.drawImage(bufferCanvas, 0, 0, canvas.width, canvas.height);
+        }
+
+        function renderAnalyticalLines(s1, s2, cX, cY) {
+            const maxOrder = Math.ceil(distance / lambda) + 1;
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(s1.x, s1.y, 5, 0, 2*Math.PI); ctx.fill();
+            ctx.beginPath(); ctx.arc(s2.x, s2.y, 5, 0, 2*Math.PI); ctx.fill();
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 1;
+            ctx.stroke();
+
+            for (let n = 0; n <= maxOrder; n++) {
+                if (showAntinodal) {
+                    const pdAntinodal = isInPhase ? n * lambda : (n + 0.5) * lambda;
+                    drawHyperbolaCurve(pdAntinodal, cX, cY, '#ef4444', 2.5, [6, 4]);
+                }
+                if (showNodal) {
+                    const pdNodal = isInPhase ? (n + 0.5) * lambda : n * lambda;
+                    drawHyperbolaCurve(pdNodal, cX, cY, '#3b82f6', 2, [2, 3]);
+                }
+            }
+        }
+
+        function drawHyperbolaCurve(pathDiffCm, cX, cY, color, width, dashPattern) {
+            if (pathDiffCm >= distance || pathDiffCm <= 0) {
+                if (pathDiffCm === 0) { 
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = width;
+                    ctx.setLineDash(dashPattern);
+                    ctx.beginPath();
+                    ctx.moveTo(cX, 0);
+                    ctx.lineTo(cX, canvas.height);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                return;
+            }
+
+            const a = (pathDiffCm * pixelsPerCm) / 2;
+            const c = (distance * pixelsPerCm) / 2;
+            const b = Math.sqrt(c*c - a*a);
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.setLineDash(dashPattern);
+            
+            for (let sign of [-1, 1]) {
+                ctx.beginPath();
+                let initialized = false;
+                
+                for (let canvasY = 0; canvasY <= canvas.height; canvasY += 6) {
+                    const y = canvasY - cY;
+                    const x = sign * a * Math.sqrt(1 + (y*y)/(b*b));
+                    const canvasX = cX + x;
+
+                    if (!initialized) {
+                        ctx.moveTo(canvasX, canvasY);
+                        initialized = true;
+                    } else {
+                        ctx.lineTo(canvasX, canvasY);
+                    }
+                }
+                ctx.stroke();
+            }
+            ctx.setLineDash([]); 
+        }
+
+        function processLiveMetrics(s1, s2) {
+            const d1_px = Math.hypot(markedPoint.x - s1.x, markedPoint.y - s1.y);
+            const d2_px = Math.hypot(markedPoint.x - s2.x, markedPoint.y - s2.y);
+            
+            const r1_cm = d1_px / pixelsPerCm;
+            const r2_cm = d2_px / pixelsPerCm;
+            const pathDiff = Math.abs(r1_cm - r2_cm);
+            const pathDiffInLambda = pathDiff / lambda;
+
+            lblCoord.innerText = `X: ${Math.round(markedPoint.x)}px | Y: ${Math.round(markedPoint.y)}px`;
+            lblR1.innerText = r1_cm.toFixed(2) + " cm";
+            lblR2.innerText = r2_cm.toFixed(2) + " cm";
+            lblPd.innerText = pathDiff.toFixed(2) + " cm";
+            lblPdLambda.innerText = pathDiffInLambda.toFixed(2) + " λ";
+
+            const modularOffset = pathDiffInLambda % 1;
+            const distanceToInteger = Math.min(modularOffset, 1 - modularOffset);
+            
+            let isConstructiveNode = isInPhase ? (distanceToInteger < 0.25) : (distanceToInteger >= 0.25);
+
+            if (isConstructiveNode) {
+                lblIntType.innerText = "Constructive Interference";
+                lblIntType.className = "interference-status status-constructive";
+            } else {
+                lblIntType.innerText = "Destructive Interference";
+                lblIntType.className = "interference-status status-destructive";
+            }
+
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(markedPoint.x, markedPoint.y, 8, 0, 2*Math.PI);
+            ctx.moveTo(markedPoint.x - 12, markedPoint.y); ctx.lineTo(markedPoint.x + 12, markedPoint.y);
+            ctx.moveTo(markedPoint.x, markedPoint.y - 12); ctx.lineTo(markedPoint.x, markedPoint.y + 12);
+            ctx.stroke();
+        }
+
+        // --- EXPANDED EXAM QUIZ PIPELINE (15 QUESTIONS) ---
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQuestionIdx = 0;
+
+        const quizQuestionsCollection = [
+            {
+                q: "1. Two dippers are vibrating in-phase with a wavelength of 2.0 cm. If a point P is 12.0 cm from Source 1 and 15.0 cm from Source 2, determine the path difference and type of interference.",
+                options: ["Path diff = 3.0 cm, Constructive Interference", "Path diff = 3.0 cm, Destructive Interference", "Path diff = 1.5 cm, Destructive Interference", "Path diff = 27.0 cm, Constructive Interference"],
+                answer: 1
+            },
+            {
+                q: "2. Two identical wave vibrators are adjusted to vibrate in Anti-Phase. What type of interference line passes exactly through the perpendicular bisector of the line joining the sources?",
+                options: ["An anti-nodal line (maximum reinforcement)", "A symmetrical wavefront curve vector", "A nodal line (complete wave cancellation)", "No fixed interference pattern forms"],
+                answer: 2
+            },
+            {
+                q: "3. In a ripple tank setup with in-phase sources, if the wave frequency (f) is doubled while maintaining an identical wave speed (v), what will happen to the spacing between adjacent nodal lines?",
+                options: ["The spatial spacing is halved.", "The spatial spacing is doubled.", "The spacing scales exponentially by a factor of 4.", "The positions remain unchanged."],
+                answer: 0
+            },
+            {
+                q: "4. For two coherent sources vibrating in-phase, which of the following path differences will locate a point on an Anti-Nodal line?",
+                options: ["0.50 λ", "1.50 λ", "2.00 λ", "2.75 λ"],
+                answer: 2
+            },
+            {
+                q: "5. If the separation distance (d) between two coherent, in-phase wave sources is slightly decreased, how does the interference fringe pattern respond?",
+                options: ["The interference lines spread farther apart from each other.", "The interference lines cluster closer together.", "The nodal lines vanish entirely.", "The wavelength instantly increases."],
+                answer: 0
+            },
+            {
+                q: "6. What basic wave property or criterion is explicitly mandatory for two individual physical water wave sources to establish a stable, identifiable interference configuration?",
+                options: ["They must exhibit identical changing amplitudes.", "They must maintain a completely constant phase relationship.", "They must propagate through distinct liquid mediums.", "They must possess polarization planes."],
+                answer: 1
+            },
+            {
+                q: "7. When observing an interference pattern generated by two coherent, in-phase sources, a point situated along the third secondary nodal line possesses a path difference equal to:",
+                options: ["1.5 λ", "2.0 λ", "2.5 λ", "3.5 λ"],
+                answer: 2
+            },
+            {
+                q: "8. If two water waves meet at a specific spatial coordinate such that a crest exactly matches a trough of equivalent height, what physical observation occurs?",
+                options: ["A double height crest forms instantly.", "The waves deflect backwards at 90 degrees.", "Destructive interference results in local momentary rest.", "The wave velocity drops to zero globally."],
+                answer: 2
+            },
+            {
+                q: "9. Two sources produce waves with wavelength λ and run in-phase. At a distance where path difference is exactly 4.0 λ, what type of fringe structure exists?",
+                options: ["A maximum constructive antinode", "A complete destructive node", "A changing phase boundary line", "An unresolvable wave packet area"],
+                answer: 0
+            },
+            {
+                q: "10. Suppose water waves migrate into a shallower zone within a ripple tank setup. How do their structural velocity and wavelength attributes adapt?",
+                options: ["Velocity scales upwards; wavelength stays fixed.", "Velocity minimizes; wavelength shortens proportionally.", "Velocity drops; wavelength elongates.", "Both metrics scale up identically."],
+                answer: 1
+            },
+            {
+                q: "11. Which characteristic parameter of a periodic wave system remains fundamentally invariant when transitioning across different transmission mediums?",
+                options: ["Propagation speed", "Spatial wavelength", "Vibrational frequency", "Wavefront curvature profile"],
+                answer: 2
+            },
+            {
+                q: "12. With an anti-phase dual-source generator configuration, the exact central line running straight down the middle represents:",
+                options: ["A major anti-nodal line", "A perfectly symmetrical nodal line", "A shifting chaotic line zone", "A path difference of exactly 0.5 λ"],
+                answer: 1
+            },
+            {
+                q: "13. The phenomenon where traveling wave systems bend around obstructions or disperse through narrow structural slits is known as:",
+                options: ["Specular reflection", "Planar refraction", "Interference alignment", "Diffraction dispersion"],
+                answer: 3
+            },
+            {
+                q: "14. If the amplitude of two individual interacting wave sources is doubled, the resulting power intensity at a constructive anti-nodal coordinate climbs by a factor of:",
+                options: ["2 times", "4 times", "8 times", "16 times"],
+                answer: 1
+            },
+            {
+                q: "15. Under an in-phase source format, if a target point yields a calculated path difference of 0.5 λ, what physical dynamic occurs at that coordinate?",
+                options: ["Maximum peak height reinforcement", "Total cancellation of displacement", "Continuous phase rotation loops", "Harmonic resonance doubling"],
+                answer: 1
+            }
+        ];
+
+        let quizModal, btnStartQuiz, btnCloseModal, viewLogin, viewQuestions, viewResults;
+        let btnLoginSubmit, btnQuestionNext, questionBox, quizProgressLbl;
+        let finalScoreLbl, studentSummaryLbl, uploadStatusLbl;
+        let btnQuizRetry, btnQuizFinish;
+
+        function initQuizElements() {
+            quizModal = document.getElementById('quiz-modal');
+            btnStartQuiz = document.getElementById('btn-start-quiz');
+            btnCloseModal = document.getElementById('btn-close-modal');
+            viewLogin = document.getElementById('view-login');
+            viewQuestions = document.getElementById('view-questions');
+            viewResults = document.getElementById('view-results');
+            btnLoginSubmit = document.getElementById('btn-login-submit');
+            btnQuestionNext = document.getElementById('btn-question-next');
+            questionBox = document.getElementById('question-box');
+            quizProgressLbl = document.getElementById('quiz-progress-lbl');
+            finalScoreLbl = document.getElementById('final-score-lbl');
+            studentSummaryLbl = document.getElementById('student-summary-lbl');
+            uploadStatusLbl = document.getElementById('upload-status-lbl');
+            
+            btnQuizRetry = document.getElementById('btn-quiz-retry');
+            btnQuizFinish = document.getElementById('btn-quiz-finish');
+
+            btnStartQuiz.addEventListener('click', () => {
+                quizModal.classList.add('active');
+                switchToQuizView('login');
+            });
+
+            btnCloseModal.addEventListener('click', () => {
+                quizModal.classList.remove('active');
+            });
+
+            btnLoginSubmit.addEventListener('click', () => {
+                const classInput = document.getElementById('student-class').value.trim();
+                const numberInput = document.getElementById('student-number').value.trim();
+
+                if (!classInput || !numberInput) {
+                    alert("Please fill in both Class designation and Class Number fields to begin.");
+                    return;
+                }
+
+                S_Class = classInput;
+                S_Number = numberInput;
+                S_Mark = 0;
+                currentQuestionIdx = 0;
+
+                switchToQuizView('questions');
+                loadQuizQuestion(currentQuestionIdx);
+            });
+
+            btnQuestionNext.addEventListener('click', () => {
+                const selectedOption = document.querySelector('input[name="quiz-opt"]:checked');
+                if (!selectedOption) {
+                    alert("Please select an answer option before moving forward.");
+                    return;
+                }
+
+                if (parseInt(selectedOption.value) === quizQuestionsCollection[currentQuestionIdx].answer) {
+                    S_Mark += 1; // 1 point per question, out of 15 max
+                }
+
+                currentQuestionIdx++;
+                if (currentQuestionIdx < quizQuestionsCollection.length) {
+                    loadQuizQuestion(currentQuestionIdx);
+                } else {
+                    displayQuizSummaryScreen();
+                }
+            });
+
+            // RETRY INTERACTION PIPELINE
+            btnQuizRetry.addEventListener('click', () => {
+                S_Mark = 0;
+                currentQuestionIdx = 0;
+                btnQuizFinish.disabled = false;
+                btnQuizFinish.style.opacity = "1";
+                btnQuizFinish.style.cursor = "pointer";
+                uploadStatusLbl.innerText = "Please choose to retry the quiz or submit your score to the database.";
+                switchToQuizView('questions');
+                loadQuizQuestion(currentQuestionIdx);
+            });
+
+            // FINISH AND TRANSMIT INTERACTION PIPELINE
+            btnQuizFinish.addEventListener('click', () => {
+                uploadStatusLbl.innerText = "Transmitting metrics safely to database in the background...";
+                btnQuizFinish.disabled = true;
+                btnQuizFinish.style.opacity = "0.5";
+                btnQuizFinish.style.cursor = "not-allowed";
+                sendDataToGoogleFormBackend(S_Class, S_Number, S_Mark);
+            });
+        }
+
+        function switchToQuizView(viewName) {
+            viewLogin.classList.remove('active');
+            viewQuestions.classList.remove('active');
+            viewResults.classList.remove('active');
+
+            if (viewName === 'login') viewLogin.classList.add('active');
+            if (viewName === 'questions') viewQuestions.classList.add('active');
+            if (viewName === 'results') viewResults.classList.add('active');
+        }
+
+        function loadQuizQuestion(index) {
+            const item = quizQuestionsCollection[index];
+            quizProgressLbl.innerText = `Question ${index + 1} of ${quizQuestionsCollection.length}`;
+            
+            let htmlContent = `<div class="question-text">${item.q}</div><div class="options-list">`;
+            item.options.forEach((opt, oIdx) => {
+                htmlContent += `
+                    <label class="option-item">
+                        <input type="radio" name="quiz-opt" value="${oIdx}">
+                        <span>${opt}</span>
+                    </label>
+                `;
+            });
+            htmlContent += `</div>`;
+            questionBox.innerHTML = htmlContent;
+        }
+
+        function displayQuizSummaryScreen() {
+            switchToQuizView('results');
+            finalScoreLbl.innerText = `${S_Mark} / ${quizQuestionsCollection.length}`;
+            studentSummaryLbl.innerText = `Class Tracker: ${S_Class} | Seat Number: ${S_Number}`;
+        }
+
+        function sendDataToGoogleFormBackend(sClass, sNumber, sMark) {
+            const formActionUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfn2xeMnEX3tdP4z2niRPdz55STw7JxES1p0X-YWN8tykVBJg/formResponse";
+            const formPayload = new URLSearchParams();
+            formPayload.append('entry.753594098', sClass);
+            formPayload.append('entry.777103265', sNumber);
+            formPayload.append('entry.1173990498', sMark.toString());
+
+            fetch(formActionUrl, {
+                method: 'POST',
+                mode: 'no-cors', 
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formPayload.toString()
+            })
+            .then(() => {
+                uploadStatusLbl.innerHTML = "<span style='color: #059669; font-weight: bold;'>✓ Data transmitted directly to Google Sheet successfully!</span>";
+            })
+            .catch((err) => {
+                console.error("Transmission error logged:", err);
+                uploadStatusLbl.innerHTML = "<span style='color: #dc2626; font-weight: bold;'>⚠️ Network link anomaly. Submission failed.</span>";
+                btnQuizFinish.disabled = false;
+                btnQuizFinish.style.opacity = "1";
+                btnQuizFinish.style.cursor = "pointer";
+            });
+        }
+
+        // --- RECOVERY LIFECYCLE INITIALIZER ---
+        function engineLifecycleGuard() {
+            initSimulation();
+            initQuizElements();
+        }
+
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            engineLifecycleGuard();
+        } else {
+            document.addEventListener('DOMContentLoaded', engineLifecycleGuard);
+        }
+    </script>
+</body>
+</html>
