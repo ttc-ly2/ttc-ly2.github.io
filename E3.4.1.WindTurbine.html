@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wind Power Simulation</title>
+    <style>
+        /* --- General Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2, h3 { color: #2c3e50; text-align: center; margin-bottom: 10px; }
+        .hidden { display: none !important; }
+        
+        button {
+            padding: 10px 15px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-warning { background-color: #f39c12; color: white; }
+        .btn-warning:hover { background-color: #e67e22; }
+        .btn-off { background-color: #ecf0f1; color: #2c3e50; border: 1px solid #bdc3c7;}
+        .btn-off:hover { background-color: #d5dbdb; }
+
+        /* --- Simulation Layout --- */
+        #simulation-view {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        /* Left Column (Calculations) */
+        .left-col {
+            flex: 1;
+            min-width: 350px;
+            background: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .data-set {
+            background: #eef2f3;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dcdde1;
+        }
+        .data-set h4 {
+            margin-top: 0;
+            color: #2980b9;
+            border-bottom: 2px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        .input-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .input-group label { font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px;}
+        .input-group input[type="number"], .input-group input[type="text"] {
+            width: 100px;
+            padding: 6px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .input-group input[readonly] {
+            background-color: #ecf0f1;
+            color: #e74c3c;
+        }
+        .unit { width: 40px; display: inline-block; font-size: 13px; color: #7f8c8d; margin-left: 5px;}
+        
+        .calculation-steps {
+            background: #fdfbf7;
+            border: 2px solid #f39c12;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1.6;
+            display: none; /* Shown after answer is pressed */
+        }
+
+        /* Right Column (Simulation) */
+        .right-col {
+            flex: 1;
+            min-width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .sim-container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas#turbine-canvas {
+            background: linear-gradient(to bottom, #87CEEB 0%, #e0f6ff 100%);
+            border: 1px solid #ecf0f1;
+            border-radius: 5px;
+            width: 100%;
+            max-width: 500px;
+            height: 400px;
+        }
+        
+        .quiz-start-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        /* --- Quiz View Styles --- */
+        #quiz-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+        .quiz-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+        .quiz-container input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0 20px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .option-btn {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            text-align: left;
+            font-weight: normal;
+            width: 100%;
+            margin-top: 10px;
+            border: 1px solid #bdc3c7;
+        }
+        .option-btn:hover { background-color: #d5dbdb; }
+        #question-counter {
+            font-weight: bold;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        #submit-feedback {
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================== -->
+    <!-- 1. SIMULATION VIEW                             -->
+    <!-- ============================================== -->
+    <div id="simulation-view">
+        
+        <!-- LEFT COLUMN -->
+        <div class="left-col">
+            <h2>Calculations</h2>
+            
+            <div class="data-set">
+                <h4>Select Unknown Variable:</h4>
+                <div style="display:flex; flex-wrap: wrap; gap: 10px; font-size: 14px; font-weight: bold; margin-bottom: 15px;">
+                    <label><input type="radio" name="solveTarget" value="P" checked onchange="toggleUnknownMode()"> Power (P)</label>
+                    <label><input type="radio" name="solveTarget" value="r" onchange="toggleUnknownMode()"> Blade Length (r)</label>
+                    <label><input type="radio" name="solveTarget" value="v" onchange="toggleUnknownMode()"> Wind Speed (v)</label>
+                    <label><input type="radio" name="solveTarget" value="rho" onchange="toggleUnknownMode()"> Air Density (ρ)</label>
+                </div>
+
+                <div class="input-group">
+                    <label>Blade Length (r):</label>
+                    <div><input type="number" id="val-r" value="20" step="1"><span class="unit">m</span></div>
+                </div>
+                
+                <div class="input-group">
+                    <label>Wind Speed (v):</label>
+                    <div><input type="number" id="val-v" value="10" step="0.5"><span class="unit">m/s</span></div>
+                </div>
+                
+                <div class="input-group">
+                    <label>Air Density (ρ):</label>
+                    <div><input type="number" id="val-rho" value="1.2" step="0.1"><span class="unit">kg/m³</span></div>
+                </div>
+
+                <div class="input-group">
+                    <label>Wind Power (P):</label>
+                    <div><input type="text" id="val-P" value="?" readonly><span class="unit">W</span></div>
+                </div>
+
+                <button class="btn-success" style="width: 100%; margin-top: 10px;" onclick="calculateAnswer()">Show Answer & Steps</button>
+            </div>
+
+            <!-- Steps Display -->
+            <div id="calc-steps" class="calculation-steps">
+                <!-- Filled by JS -->
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="right-col">
+            <div class="sim-container">
+                <h2>Wind Turbine Simulation</h2>
+                <canvas id="turbine-canvas" width="500" height="400"></canvas>
+            </div>
+            
+            <div class="quiz-start-box">
+                <button class="btn-warning" style="padding: 15px 30px; font-size: 18px;" onclick="switchToQuiz()">Start the Quiz</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 2. QUIZ VIEW                                   -->
+    <!-- ============================================== -->
+    <div id="quiz-wrapper" class="hidden">
+        <div class="quiz-container">
+            
+            <!-- Setup Screen -->
+            <div id="setup-screen">
+                <h2>Wind Power Quiz</h2>
+                <p>Welcome to the Physics Quiz.</p>
+                
+                <label for="class-input">Class (e.g., 3A):</label><br>
+                <input type="text" id="class-input" placeholder="Enter your Class"><br>
+                
+                <label for="number-input">Class Number (e.g., 15):</label><br>
+                <input type="text" id="number-input" placeholder="Enter your Class Number"><br>
+                
+                <button class="btn-primary" style="width:100%" onclick="startGame()">Start Game</button>
+                <button class="btn-off" style="width:100%; margin-top:10px;" onclick="switchToSimulation()">Back to Simulation</button>
+                <p id="error-msg" style="color: red; display: none;">Please enter both Class and Class Number.</p>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="hidden">
+                <div id="question-counter">Question 1 of 10</div>
+                <h2 id="question-text">Question text goes here</h2>
+                <div id="options-container"></div>
+            </div>
+
+            <!-- Result Screen -->
+            <div id="result-screen" class="hidden">
+                <h2>Quiz Completed!</h2>
+                <h3>Your Score: <span id="final-score">0</span> / 10</h3>
+                
+                <div id="end-buttons">
+                    <button class="btn-success" style="width:100%" onclick="handleFinishAndSubmit()">Finish and Submit</button>
+                    <button class="btn-off" style="width:100%; margin-top:10px;" onclick="handleTryAgain()">Try Again</button>
+                </div>
+
+                <p id="submit-feedback" class="hidden">Your results have been successfully submitted!</p>
+                <button class="btn-off" style="width:100%; margin-top: 15px;" onclick="switchToSimulation()">Return to Simulation</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /* ====================================================================== */
+        /*                       SIMULATION LOGIC                                 */
+        /* ====================================================================== */
+        
+        const inputs = {
+            'r': document.getElementById('val-r'),
+            'v': document.getElementById('val-v'),
+            'rho': document.getElementById('val-rho'),
+            'P': document.getElementById('val-P')
+        };
+        const calcSteps = document.getElementById('calc-steps');
+        
+        // Canvas Setup
+        const canvas = document.getElementById('turbine-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Animation Variables
+        let angle = 0;
+        let simV = 10;   // visual wind speed
+        let simR = 20;   // visual blade length
+        let windParticles = [];
+
+        // Initialize particles
+        for(let i=0; i<30; i++) {
+            windParticles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                length: 10 + Math.random() * 30
+            });
+        }
+
+        function initSimulation() {
+            requestAnimationFrame(renderLoop);
+        }
+
+        function toggleUnknownMode() {
+            calcSteps.style.display = 'none';
+            const target = document.querySelector('input[name="solveTarget"]:checked').value;
+            
+            // Reset all to input mode
+            for (let key in inputs) {
+                inputs[key].readOnly = false;
+                inputs[key].type = "number";
+                inputs[key].style.backgroundColor = "#fff";
+            }
+
+            // Set the target to readonly
+            inputs[target].readOnly = true;
+            inputs[target].type = "text";
+            inputs[target].value = "?";
+            inputs[target].style.backgroundColor = "#ecf0f1";
+
+            // Supply defaults if they were cleared
+            if(target !== 'r' && inputs['r'].value === '?') inputs['r'].value = 20;
+            if(target !== 'v' && inputs['v'].value === '?') inputs['v'].value = 10;
+            if(target !== 'rho' && inputs['rho'].value === '?') inputs['rho'].value = 1.2;
+            if(target !== 'P' && inputs['P'].value === '?') inputs['P'].value = 754000;
+        }
+
+        function calculateAnswer() {
+            const target = document.querySelector('input[name="solveTarget"]:checked').value;
+            
+            let r = parseFloat(inputs['r'].value);
+            let v = parseFloat(inputs['v'].value);
+            let rho = parseFloat(inputs['rho'].value);
+            let P = parseFloat(inputs['P'].value);
+
+            let html = "";
+            let pi = Math.PI;
+
+            if (target === 'P') {
+                if(isNaN(r) || isNaN(v) || isNaN(rho)) return alert("Fill in r, v, and ρ");
+                // P = 0.5 * rho * pi * r^2 * v^3
+                P = 0.5 * rho * pi * Math.pow(r, 2) * Math.pow(v, 3);
+                inputs['P'].value = P.toFixed(2);
+                
+                html = `
+                    <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Steps (Find Power, P)</div>
+                    Kinetic energy of air passing through area A per second:<br>
+                    <b>P = &frac12; &rho; A v³</b><br>
+                    Since Area A = &pi; r²:<br>
+                    <b>P = &frac12; &rho; &pi; r² v³</b><br><br>
+                    P = 0.5 &times; ${rho} &times; &pi; &times; (${r})² &times; (${v})³<br>
+                    P = 0.5 &times; ${rho} &times; ${Math.PI.toFixed(4)} &times; ${Math.pow(r, 2)} &times; ${Math.pow(v, 3)}<br>
+                    <b>P = ${P.toFixed(2)} W</b> (or ${(P/1000).toFixed(2)} kW)
+                `;
+            } 
+            else if (target === 'r') {
+                if(isNaN(P) || isNaN(v) || isNaN(rho)) return alert("Fill in P, v, and ρ");
+                // r = sqrt( P / (0.5 * rho * pi * v^3) )
+                let denominator = 0.5 * rho * pi * Math.pow(v, 3);
+                r = Math.sqrt(P / denominator);
+                inputs['r'].value = r.toFixed(2);
+                
+                html = `
+                    <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Steps (Find Blade Length, r)</div>
+                    <b>P = &frac12; &rho; &pi; r² v³</b><br>
+                    Rearranging for r:<br>
+                    <b>r = &radic; [ P / (&frac12; &rho; &pi; v³) ]</b><br><br>
+                    r = &radic; [ ${P} / (0.5 &times; ${rho} &times; &pi; &times; ${v}³) ]<br>
+                    r = &radic; [ ${P} / ${denominator.toFixed(2)} ]<br>
+                    r = &radic; [ ${(P/denominator).toFixed(4)} ]<br>
+                    <b>r = ${r.toFixed(2)} m</b>
+                `;
+            }
+            else if (target === 'v') {
+                if(isNaN(P) || isNaN(r) || isNaN(rho)) return alert("Fill in P, r, and ρ");
+                // v = cbrt( P / (0.5 * rho * pi * r^2) )
+                let denominator = 0.5 * rho * pi * Math.pow(r, 2);
+                v = Math.cbrt(P / denominator);
+                inputs['v'].value = v.toFixed(2);
+
+                html = `
+                    <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Steps (Find Wind Speed, v)</div>
+                    <b>P = &frac12; &rho; &pi; r² v³</b><br>
+                    Rearranging for v:<br>
+                    <b>v = &sup3;&radic; [ P / (&frac12; &rho; &pi; r²) ]</b><br><br>
+                    v = &sup3;&radic; [ ${P} / (0.5 &times; ${rho} &times; &pi; &times; ${r}²) ]<br>
+                    v = &sup3;&radic; [ ${P} / ${denominator.toFixed(2)} ]<br>
+                    v = &sup3;&radic; [ ${(P/denominator).toFixed(4)} ]<br>
+                    <b>v = ${v.toFixed(2)} m/s</b>
+                `;
+            }
+            else if (target === 'rho') {
+                if(isNaN(P) || isNaN(r) || isNaN(v)) return alert("Fill in P, r, and v");
+                // rho = P / (0.5 * pi * r^2 * v^3)
+                let denominator = 0.5 * pi * Math.pow(r, 2) * Math.pow(v, 3);
+                rho = P / denominator;
+                inputs['rho'].value = rho.toFixed(4);
+
+                html = `
+                    <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Steps (Find Air Density, &rho;)</div>
+                    <b>P = &frac12; &rho; &pi; r² v³</b><br>
+                    Rearranging for &rho;:<br>
+                    <b>&rho; = P / (&frac12; &pi; r² v³)</b><br><br>
+                    &rho; = ${P} / (0.5 &times; &pi; &times; ${r}² &times; ${v}³)<br>
+                    &rho; = ${P} / ${denominator.toFixed(2)}<br>
+                    <b>&rho; = ${rho.toFixed(4)} kg/m³</b>
+                `;
+            }
+
+            calcSteps.innerHTML = html;
+            calcSteps.style.display = 'block';
+
+            // Update Visuals
+            simV = isNaN(v) ? 10 : v;
+            simR = isNaN(r) ? 20 : r;
+        }
+
+        // --- Canvas Animation ---
+        function renderLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw Ground
+            ctx.fillStyle = "#27ae60";
+            ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+            // Draw Wind particles
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.lineWidth = 2;
+            
+            let windSpeedVis = Math.max(1, Math.min(simV, 30)); // Cap visual speed
+            
+            for(let i=0; i<windParticles.length; i++) {
+                let p = windParticles[i];
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x + p.length, p.y);
+                ctx.stroke();
+                
+                // Move particle
+                p.x += windSpeedVis;
+                if(p.x > canvas.width) {
+                    p.x = -p.length;
+                    p.y = Math.random() * (canvas.height - 40);
+                }
+            }
+
+            // Draw Tower
+            const cx = canvas.width / 2 + 50; // Shifted right a bit
+            const cy = 150;
+            ctx.fillStyle = "#bdc3c7";
+            ctx.beginPath();
+            ctx.moveTo(cx - 10, cy);
+            ctx.lineTo(cx + 10, cy);
+            ctx.lineTo(cx + 25, canvas.height - 40);
+            ctx.lineTo(cx - 25, canvas.height - 40);
+            ctx.fill();
+            ctx.strokeStyle = "#7f8c8d";
+            ctx.stroke();
+
+            // Draw Rotor & Blades
+            // Scale blade length visually (cap at 120 pixels max)
+            let visualR = Math.min(simR * 3, 120);
+            visualR = Math.max(visualR, 30); // minimum visual size
+            
+            // Rotation speed based on v and inversely to r
+            let rotationSpeed = (simV / visualR) * 0.5;
+            angle += rotationSpeed;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+
+            // Draw 3 Blades
+            ctx.fillStyle = "#ecf0f1";
+            ctx.strokeStyle = "#95a5a6";
+            ctx.lineWidth = 2;
+            
+            for(let i=0; i<3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                // Blade shape
+                ctx.quadraticCurveTo(15, -visualR/2, 5, -visualR);
+                ctx.lineTo(-5, -visualR);
+                ctx.quadraticCurveTo(-15, -visualR/2, 0, 0);
+                ctx.fill();
+                ctx.stroke();
+                ctx.rotate((Math.PI * 2) / 3); // 120 degrees
+            }
+
+            // Draw Hub
+            ctx.beginPath();
+            ctx.arc(0, 0, 10, 0, Math.PI * 2);
+            ctx.fillStyle = "#7f8c8d";
+            ctx.fill();
+
+            ctx.restore();
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        window.onload = initSimulation;
+
+        /* ====================================================================== */
+        /*                          QUIZ LOGIC                                    */
+        /* ====================================================================== */
+        
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQuestionIndex = 0;
+
+        // 10 MC Questions for Wind Power
+        const questions = [
+            {
+                question: "What form of energy present in the wind is primarily captured by a wind turbine?",
+                options: ["Gravitational potential energy", "Kinetic energy", "Thermal energy", "Chemical energy"],
+                answer: 1
+            },
+            {
+                question: "According to the wind power formula, if the wind speed is doubled, by what factor does the wind power increase?",
+                options: ["It doubles (2x)", "It quadruples (4x)", "It increases by a factor of 8", "It increases by a factor of 16"],
+                answer: 2
+            },
+            {
+                question: "Which of the following factors does NOT directly affect the theoretical power available in the wind?",
+                options: ["Blade length of the turbine", "Air density", "Wind speed", "Temperature of the electrical generator"],
+                answer: 3
+            },
+            {
+                question: "The area swept by the blades of a wind turbine depends on the blade length (r) according to which mathematical formula?",
+                options: ["2πr", "πr²", "4/3 πr³", "½ base × height"],
+                answer: 1
+            },
+            {
+                question: "If the air density increases (e.g., on a cold winter day), what happens to the power output of a wind turbine, assuming wind speed remains constant?",
+                options: ["The power output decreases", "The power output increases", "The power output remains exactly the same", "The turbine will stop spinning completely"],
+                answer: 1
+            },
+            {
+                question: "What happens to the kinetic energy of the wind as it passes through a wind turbine?",
+                options: ["It is completely destroyed", "It increases", "It is converted into mechanical and then electrical energy", "It turns into gravitational potential energy"],
+                answer: 2
+            },
+            {
+                question: "The unit of power (Watt) is equivalent to which of the following?",
+                options: ["Joules per second", "Newtons per meter", "Kilograms per hour", "Volts per second"],
+                answer: 0
+            },
+            {
+                question: "Why can't a wind turbine extract 100% of the kinetic energy from the wind?",
+                options: ["The blades are too heavy to capture all the wind.", "The wind must have some kinetic energy left to exit the turbine area.", "The air density drops to zero inside the turbine.", "Electrical generators require heat to operate."],
+                answer: 1
+            },
+            {
+                question: "If the blade length of a wind turbine is doubled, the swept area increases by a factor of:",
+                options: ["2", "4", "8", "16"],
+                answer: 1
+            },
+            {
+                question: "Wind energy is ultimately derived from solar energy. Why is this statement true?",
+                options: ["Solar panels are used to start the turbines.", "The sun's gravity pulls the wind across the Earth.", "The sun heats the Earth's surface unevenly, creating wind.", "Turbines can only generate power during the daytime."],
+                answer: 2
+            }
+        ];
+
+        function switchToQuiz() {
+            document.getElementById('simulation-view').classList.add('hidden');
+            document.getElementById('quiz-wrapper').classList.remove('hidden');
+        }
+
+        function switchToSimulation() {
+            document.getElementById('quiz-wrapper').classList.add('hidden');
+            document.getElementById('simulation-view').classList.remove('hidden');
+        }
+
+        function startGame() {
+            const classInput = document.getElementById("class-input").value.trim();
+            const numberInput = document.getElementById("number-input").value.trim();
+
+            if (classInput === "" || numberInput === "") {
+                document.getElementById("error-msg").style.display = "block";
+                return;
+            }
+            document.getElementById("error-msg").style.display = "none";
+
+            S_Class = classInput;
+            S_Number = numberInput;
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+
+            document.getElementById("setup-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questions[currentQuestionIndex];
+            document.getElementById("question-text").innerText = q.question;
+            document.getElementById("question-counter").innerText = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+            
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(index);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIndex) {
+            if (selectedIndex === questions[currentQuestionIndex].answer) {
+                S_Mark++;
+            }
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            document.getElementById("quiz-screen").classList.add("hidden");
+            document.getElementById("result-screen").classList.remove("hidden");
+            document.getElementById("final-score").innerText = S_Mark;
+            
+            document.getElementById("end-buttons").classList.remove("hidden");
+            document.getElementById("submit-feedback").classList.add("hidden");
+        }
+
+        function handleTryAgain() {
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+            document.getElementById("result-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function handleFinishAndSubmit() {
+            submitToGoogleForm();
+            document.getElementById("end-buttons").classList.add("hidden");
+            document.getElementById("submit-feedback").classList.remove("hidden");
+        }
+
+        function submitToGoogleForm() {
+            // Provided Google Form URL for Wind Power Quiz
+            const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSeIXf_tDdtVIBhzveux-aZJnOGGpWIsBPUCr6b93jlo2pntrw/formResponse";
+            
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", S_Class);
+            formData.append("entry.777103265", S_Number);
+            formData.append("entry.1173990498", S_Mark);
+
+            fetch(formUrl, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("Submitted successfully to Google Forms.");
+            }).catch((error) => {
+                console.error("Error submitting form:", error);
+            });
+        }
+    </script>
+</body>
+</html>
