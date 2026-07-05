@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 Physics: Refraction App</title>
+    <!-- Include Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- General Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2 { color: #2c3e50; text-align: center; }
+        .hidden { display: none !important; }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+            width: 100%;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        button:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-secondary { background-color: #95a5a6; }
+        .btn-secondary:hover { background-color: #7f8c8d; }
+        .btn-warning { background-color: #f39c12; }
+        .btn-warning:hover { background-color: #e67e22; }
+        
+        /* Danger Button for Clear Data */
+        .btn-danger { 
+            background-color: #e74c3c; 
+            width: auto; 
+            padding: 5px 12px; 
+            margin-top: 0; 
+            font-size: 14px;
+        }
+        .btn-danger:hover { background-color: #c0392b; }
+
+        /* --- Simulation View Styles --- */
+        #simulation-view {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1fr;
+            gap: 20px;
+        }
+        .column {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        .column-title {
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #2980b9;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        /* Layout for Title + Clear Button */
+        .header-with-action {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .header-with-action .column-title {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .control-group { margin-bottom: 20px; }
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        #steps-container, #slope-steps-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eef2f3;
+            border-radius: 5px;
+            line-height: 1.6;
+            display: none;
+        }
+        
+        canvas#diagram {
+            background-color: #fafafa;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 100%;
+            height: 400px;
+            margin-bottom: 15px;
+        }
+        .table-container {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+        }
+        th, td { padding: 8px; border-bottom: 1px solid #ddd; }
+        th { background-color: #3498db; color: white; position: sticky; top: 0; }
+        .chart-container {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            min-height: 200px;
+        }
+        .graph-buttons { margin-top: 15px; }
+
+        /* --- Quiz View Styles --- */
+        #quiz-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+        .quiz-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0 20px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .option-btn {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            text-align: left;
+            font-weight: normal;
+        }
+        .option-btn:hover { background-color: #d5dbdb; }
+        #question-counter {
+            font-weight: bold;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        #submit-feedback {
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================== -->
+    <!-- 1. SIMULATION VIEW                             -->
+    <!-- ============================================== -->
+    <div id="simulation-view">
+        <h1>Light Refraction Simulation</h1>
+        <div class="container">
+            
+            <!-- Left Column: Controls & Steps -->
+            <div class="column">
+                <div class="column-title">Parameters & Calculations</div>
+                
+                <div class="control-group">
+                    <label>Medium 1 Refractive Index (n₁): <span id="n1-val">1.0</span></label>
+                    <input type="range" id="n1" min="1.0" max="3.0" step="0.1" value="1.0">
+                </div>
+                
+                <div class="control-group">
+                    <label>Medium 2 Refractive Index (n₂): <span id="n2-val">1.5</span></label>
+                    <input type="range" id="n2" min="1.0" max="3.0" step="0.1" value="1.5">
+                </div>
+                
+                <div class="control-group">
+                    <label>Angle of Incidence (i): <span id="i-val">45.0°</span></label>
+                    <input type="range" id="angle-i" min="0.0" max="89.9" step="0.1" value="45.0">
+                </div>
+
+                <button id="toggle-steps-btn">Show Calculation Steps</button>
+                
+                <div id="steps-container"></div>
+                
+                <!-- Slope Calculation Steps -->
+                <div id="slope-steps-container"></div>
+            </div>
+
+            <!-- Middle Column: Ray Diagram & Record -->
+            <div class="column">
+                <div class="column-title">Ray Diagram</div>
+                <canvas id="diagram" width="500" height="400"></canvas>
+                <button id="record-btn" class="btn-success">Record Data (i & r)</button>
+            </div>
+
+            <!-- Right Column: Table & Graph -->
+            <div class="column">
+                <div class="header-with-action">
+                    <div class="column-title">Recorded Data</div>
+                    <button id="clear-btn" class="btn-danger" title="Clear all data">🗑️ Clear</button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="data-table">
+                        <thead>
+                            <tr>
+                                <th>i (°)</th>
+                                <th>r (°)</th>
+                                <th>sin(i)</th>
+                                <th>sin(r)</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="graphCanvas"></canvas>
+                </div>
+                
+                <!-- Extra Graph Buttons -->
+                <div class="graph-buttons">
+                    <button id="trend-btn" class="btn-secondary" onclick="toggleTrendLine()">Show Trend Line</button>
+                    <button class="btn-warning" onclick="switchToQuiz()">Start a Refraction Quiz</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 2. QUIZ VIEW                                   -->
+    <!-- ============================================== -->
+    <div id="quiz-wrapper" class="hidden">
+        <div class="quiz-container">
+            
+            <!-- Setup Screen -->
+            <div id="setup-screen">
+                <h2>Refraction Quiz</h2>
+                <p>Welcome to the S3 Physics Refraction test.</p>
+                
+                <label for="class-input">Class (e.g., 3A):</label><br>
+                <input type="text" id="class-input" placeholder="Enter your Class"><br>
+                
+                <label for="number-input">Class Number (e.g., 15):</label><br>
+                <input type="text" id="number-input" placeholder="Enter your Class Number"><br>
+                
+                <button onclick="startGame()">Start Game</button>
+                <button class="btn-secondary" onclick="switchToSimulation()">Back to Simulation</button>
+                <p id="error-msg" style="color: red; display: none;">Please enter both Class and Class Number.</p>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="hidden">
+                <div id="question-counter">Question 1 of 5</div>
+                <h2 id="question-text">Question text goes here</h2>
+                <div id="options-container"></div>
+            </div>
+
+            <!-- Result Screen -->
+            <div id="result-screen" class="hidden">
+                <h2>Quiz Completed!</h2>
+                <h3>Your Score: <span id="final-score">0</span> / 5</h3>
+                
+                <div id="end-buttons">
+                    <button class="btn-success" onclick="handleFinishAndSubmit()">Finish and Submit</button>
+                    <button class="btn-secondary" onclick="handleTryAgain()">Try Again</button>
+                </div>
+
+                <p id="submit-feedback" class="hidden">Your results have been successfully submitted!</p>
+                <button class="btn-secondary" style="margin-top: 15px;" onclick="switchToSimulation()">Return to Simulation</button>
+            </div>
+
+        </div>
+    </div>
+
+
+    <script>
+        /* ====================================================================== */
+        /*                       SIMULATION LOGIC                                 */
+        /* ====================================================================== */
+        
+        let showSteps = false;
+        let chartInstance = null;
+        let showingTrend = false;
+
+        const sliderN1 = document.getElementById('n1');
+        const sliderN2 = document.getElementById('n2');
+        const sliderI = document.getElementById('angle-i');
+        const valN1 = document.getElementById('n1-val');
+        const valN2 = document.getElementById('n2-val');
+        const valI = document.getElementById('i-val');
+        const btnToggleSteps = document.getElementById('toggle-steps-btn');
+        const btnClearData = document.getElementById('clear-btn');
+        const stepsContainer = document.getElementById('steps-container');
+        const canvas = document.getElementById('diagram');
+        const ctx = canvas.getContext('2d');
+        const tableBody = document.querySelector('#data-table tbody');
+
+        function initSimulation() {
+            sliderN1.addEventListener('input', updateSimulation);
+            sliderN2.addEventListener('input', updateSimulation);
+            sliderI.addEventListener('input', updateSimulation);
+            btnToggleSteps.addEventListener('click', toggleSteps);
+            document.getElementById('record-btn').addEventListener('click', recordData);
+            btnClearData.addEventListener('click', clearAllData);
+
+            const chartCtx = document.getElementById('graphCanvas').getContext('2d');
+            chartInstance = new Chart(chartCtx, {
+                data: {
+                    datasets: [
+                        {
+                            type: 'scatter',
+                            label: 'sin(i) vs sin(r)',
+                            data: [],
+                            backgroundColor: '#e74c3c',
+                            borderColor: '#c0392b',
+                            pointRadius: 5
+                        },
+                        {
+                            type: 'line',
+                            label: 'Trend Line',
+                            data: [],
+                            borderColor: '#2980b9',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false,
+                            pointRadius: 0,
+                            hidden: true 
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'sin(r) (x-axis)', font: {weight: 'bold'} }, min: 0, max: 1 },
+                        y: { title: { display: true, text: 'sin(i) (y-axis)', font: {weight: 'bold'} }, min: 0, max: 1 }
+                    }
+                }
+            });
+
+            updateSimulation();
+        }
+
+        function updateSimulation() {
+            const n1 = parseFloat(sliderN1.value);
+            const n2 = parseFloat(sliderN2.value);
+            const iDeg = parseFloat(sliderI.value);
+
+            valN1.innerText = n1.toFixed(1);
+            valN2.innerText = n2.toFixed(1);
+            valI.innerText = iDeg.toFixed(1) + '°';
+
+            const iRad = iDeg * (Math.PI / 180);
+            const sinI = Math.sin(iRad);
+            const ratio = (n1 / n2) * sinI;
+
+            let rDeg = 0;
+            let rRad = 0;
+            let isTIR = false;
+
+            if (ratio > 1) {
+                isTIR = true;
+            } else {
+                rRad = Math.asin(ratio);
+                rDeg = rRad * (180 / Math.PI);
+            }
+
+            updateStepsUI(n1, n2, iDeg, rDeg, sinI, ratio, isTIR);
+            drawDiagram(n1, n2, iRad, rRad, iDeg, isTIR);
+        }
+
+        function toggleSteps() {
+            showSteps = !showSteps;
+            btnToggleSteps.innerText = showSteps ? "Hide Calculation Steps" : "Show Calculation Steps";
+            stepsContainer.style.display = showSteps ? "block" : "none";
+            updateSimulation();
+        }
+
+        function updateStepsUI(n1, n2, iDeg, rDeg, sinI, sinR, isTIR) {
+            if (isTIR) {
+                stepsContainer.innerHTML = `
+                    <b>Snell's Law:</b> n₁ sin(i) = n₂ sin(r)<br>
+                    ${n1.toFixed(1)} &times; sin(${iDeg.toFixed(1)}°) = ${n2.toFixed(1)} &times; sin(r)<br>
+                    sin(r) = (${n1.toFixed(1)} &times; ${sinI.toFixed(4)}) / ${n2.toFixed(1)}<br>
+                    sin(r) = ${sinR.toFixed(4)}<br>
+                    <span style="color:red; font-weight:bold;">Total Internal Reflection occurs because sin(r) > 1.</span>
+                `;
+            } else {
+                stepsContainer.innerHTML = `
+                    <b>Snell's Law:</b> n₁ sin(i) = n₂ sin(r)<br>
+                    ${n1.toFixed(1)} &times; sin(${iDeg.toFixed(1)}°) = ${n2.toFixed(1)} &times; sin(r)<br>
+                    sin(r) = (${n1.toFixed(1)} &times; ${sinI.toFixed(4)}) / ${n2.toFixed(1)}<br>
+                    sin(r) = ${sinR.toFixed(4)}<br>
+                    <b>r = ${rDeg.toFixed(1)}°</b>
+                `;
+            }
+        }
+
+        function drawDiagram(n1, n2, iRad, rRad, iDeg, isTIR) {
+            const width = canvas.width;
+            const height = canvas.height;
+            const cx = width / 2;
+            const cy = height / 2;
+            const rayLength = 250;
+
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.fillStyle = "rgba(173, 216, 230, 0.3)"; 
+            ctx.fillRect(0, 0, width, cy);
+            ctx.fillStyle = n2 > n1 ? "rgba(135, 206, 235, 0.6)" : "rgba(173, 216, 230, 0.1)";
+            ctx.fillRect(0, cy, width, height);
+
+            ctx.fillStyle = "#333";
+            ctx.font = "14px Arial";
+            ctx.fillText(`Medium 1 (n = ${n1.toFixed(1)})`, 10, 20);
+            ctx.fillText(`Medium 2 (n = ${n2.toFixed(1)})`, 10, cy + 20);
+
+            ctx.beginPath();
+            ctx.moveTo(0, cy);
+            ctx.lineTo(width, cy);
+            ctx.strokeStyle = "#555";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(cx, 0);
+            ctx.lineTo(cx, height);
+            ctx.strokeStyle = "#888";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.setLineDash([]); 
+
+            const iX = cx - rayLength * Math.sin(iRad);
+            const iY = cy - rayLength * Math.cos(iRad);
+            
+            ctx.beginPath();
+            ctx.moveTo(iX, iY);
+            ctx.lineTo(cx, cy);
+            ctx.strokeStyle = "#e74c3c";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            drawArrowhead(ctx, iX, iY, cx, cy);
+
+            if (iRad > 0.01) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, 40, -Math.PI/2 - iRad, -Math.PI/2);
+                ctx.strokeStyle = "#333";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.fillStyle = "#333";
+                ctx.fillText(`${iDeg.toFixed(1)}°`, cx - 40 * Math.sin(iRad/2) - 25, cy - 40 * Math.cos(iRad/2) - 10);
+            }
+
+            if (isTIR) {
+                const refX = cx + rayLength * Math.sin(iRad);
+                const refY = cy - rayLength * Math.cos(iRad);
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(refX, refY);
+                ctx.strokeStyle = "#e74c3c";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                drawArrowhead(ctx, cx, cy, refX, refY);
+
+                ctx.fillStyle = "#c0392b";
+                ctx.font = "bold 16px Arial";
+                ctx.fillText("Total Internal Reflection", cx + 20, cy - 20);
+            } else {
+                const rX = cx + rayLength * Math.sin(rRad);
+                const rY = cy + rayLength * Math.cos(rRad);
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(rX, rY);
+                ctx.strokeStyle = "#e74c3c";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                drawArrowhead(ctx, cx, cy, rX, rY);
+
+                if (rRad > 0.01) {
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 40, Math.PI/2 - rRad, Math.PI/2);
+                    ctx.strokeStyle = "#333";
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    let rText = showSteps ? `${(rRad * 180 / Math.PI).toFixed(1)}°` : "?";
+                    ctx.fillStyle = "#333";
+                    ctx.font = "14px Arial";
+                    ctx.fillText(rText, cx + 45 * Math.sin(rRad/2), cy + 45 * Math.cos(rRad/2) + 10);
+                }
+            }
+        }
+
+        function drawArrowhead(ctx, fromX, fromY, toX, toY) {
+            const headlen = 10;
+            const midX = (fromX + toX) / 2;
+            const midY = (fromY + toY) / 2;
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+
+            ctx.beginPath();
+            ctx.moveTo(midX, midY);
+            ctx.lineTo(midX - headlen * Math.cos(angle - Math.PI / 6), midY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(midX - headlen * Math.cos(angle + Math.PI / 6), midY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.lineTo(midX, midY);
+            ctx.fillStyle = "#e74c3c";
+            ctx.fill();
+        }
+
+        function recordData() {
+            const n1 = parseFloat(sliderN1.value);
+            const n2 = parseFloat(sliderN2.value);
+            const iDeg = parseFloat(sliderI.value);
+            const iRad = iDeg * (Math.PI / 180);
+            const sinI = Math.sin(iRad);
+            const ratio = (n1 / n2) * sinI;
+
+            if (ratio > 1) {
+                alert("Cannot record Total Internal Reflection! There is no angle of refraction.");
+                return;
+            }
+
+            const rRad = Math.asin(ratio);
+            const rDeg = rRad * (180 / Math.PI);
+            const sinR = Math.sin(rRad);
+
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `<td>${iDeg.toFixed(1)}</td><td>${rDeg.toFixed(1)}</td><td>${sinI.toFixed(4)}</td><td>${sinR.toFixed(4)}</td>`;
+            tableBody.appendChild(newRow);
+
+            const tableContainer = document.querySelector('.table-container');
+            tableContainer.scrollTop = tableContainer.scrollHeight;
+
+            chartInstance.data.datasets[0].data.push({ x: sinR, y: sinI });
+            
+            if (showingTrend) refreshTrendLine();
+            chartInstance.update();
+        }
+
+        function clearAllData() {
+            tableBody.innerHTML = '';
+            chartInstance.data.datasets[0].data = [];
+            
+            showingTrend = false;
+            document.getElementById('trend-btn').innerText = "Show Trend Line";
+            chartInstance.data.datasets[1].hidden = true;
+            document.getElementById("slope-steps-container").style.display = "none";
+            
+            chartInstance.update();
+        }
+
+        function toggleTrendLine() {
+            showingTrend = !showingTrend;
+            document.getElementById('trend-btn').innerText = showingTrend ? "Hide Trend Line" : "Show Trend Line";
+            refreshTrendLine();
+            chartInstance.update();
+        }
+
+        function refreshTrendLine() {
+            let scatterData = chartInstance.data.datasets[0].data;
+            let trendDataset = chartInstance.data.datasets[1];
+            const slopeContainer = document.getElementById("slope-steps-container");
+            
+            if (showingTrend) {
+                if (scatterData.length < 2) {
+                    alert("Please record at least 2 data points to calculate a trend line.");
+                    showingTrend = false;
+                    document.getElementById('trend-btn').innerText = "Show Trend Line";
+                    trendDataset.hidden = true;
+                    slopeContainer.style.display = "none";
+                    return;
+                }
+                
+                // Linear Regression y = mx (forced through origin 0,0)
+                let n = scatterData.length;
+                let sumXY = 0, sumXX = 0;
+                
+                for (let i = 0; i < n; i++) {
+                    sumXY += scatterData[i].x * scatterData[i].y;
+                    sumXX += scatterData[i].x * scatterData[i].x;
+                }
+                
+                let m = (sumXX === 0) ? 0 : (sumXY / sumXX);
+                
+                trendDataset.data = [
+                    { x: 0, y: 0 }, 
+                    { x: 1, y: m * 1 }
+                ];
+                trendDataset.hidden = false;
+
+                // Pick the max x-value from data to use as the second point for explanation
+                let xValues = scatterData.map(pt => pt.x);
+                let maxX = Math.max(...xValues);
+                if (maxX === 0) { maxX = 1; } 
+
+                let x2 = maxX;
+                let y2 = m * maxX;
+
+                // Render in the Left Column
+                slopeContainer.innerHTML = `
+                    <div style="font-weight: bold; color: #2980b9; margin-bottom: 5px;">Slope (m) Calculation Steps:</div>
+                    In this physics experiment, the line of best fit passes directly through the origin.<br><br>
+                    Taking the origin and one point on the line:<br>
+                    Point 1 (x₁, y₁) = (0.0000, 0.0000)<br>
+                    Point 2 (x₂, y₂) = (${x2.toFixed(4)}, ${y2.toFixed(4)})<br>
+                    <br>
+                    m = (y₂ - y₁) / (x₂ - x₁)<br>
+                    m = (${y2.toFixed(4)} - 0.0000) / (${x2.toFixed(4)} - 0.0000)<br>
+                    m = ${y2.toFixed(4)} / ${x2.toFixed(4)}<br>
+                    <b>m = ${m.toFixed(4)}</b><br>
+                    
+                    <div style="margin-top: 10px; font-size: 0.9em; color: #7f8c8d; border-top: 1px solid #ccc; padding-top: 10px;">
+                    <i><b>Physics Context:</b> Using Snell's Law (n₁ &times; sin(i) = n₂ &times; sin(r)), 
+                    we get sin(i) = (n₂/n₁) &times; sin(r). Therefore, the slope (m) of this graph is equal to the ratio n₂ / n₁.</i>
+                    </div>
+                `;
+                slopeContainer.style.display = "block";
+
+            } else {
+                trendDataset.hidden = true;
+                slopeContainer.style.display = "none";
+            }
+        }
+
+
+        /* ====================================================================== */
+        /*                          QUIZ LOGIC                                    */
+        /* ====================================================================== */
+        
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQuestionIndex = 0;
+
+        const questions = [
+            {
+                question: "When light travels from a less dense medium into an optically denser medium, how does it bend?",
+                options: ["Away from the normal", "Towards the normal", "It does not bend", "It reflects back completely"],
+                answer: 1
+            },
+            {
+                question: "What is the primary cause of the refraction of light?",
+                options: ["Light changing its speed when entering a new medium", "Light being absorbed by the material", "Light reflecting off particles", "Light changing its color"],
+                answer: 0
+            },
+            {
+                question: "If a light ray enters a glass block exactly along the normal (angle of incidence = 0°), what happens?",
+                options: ["It bends 90 degrees", "It undergoes total internal reflection", "It passes straight through without bending", "It bends towards the normal"],
+                answer: 2
+            },
+            {
+                question: "Which of the following real-life phenomena is caused by refraction?",
+                options: ["Seeing yourself in a mirror", "A swimming pool appearing shallower than it really is", "Shadows forming on a sunny day", "Echoes in an empty room"],
+                answer: 1
+            },
+            {
+                question: "When light travels from water into air, its speed ____________.",
+                options: ["Decreases", "Increases", "Remains the same", "Becomes zero"],
+                answer: 1
+            }
+        ];
+
+        function switchToQuiz() {
+            document.getElementById('simulation-view').classList.add('hidden');
+            document.getElementById('quiz-wrapper').classList.remove('hidden');
+        }
+
+        function switchToSimulation() {
+            document.getElementById('quiz-wrapper').classList.add('hidden');
+            document.getElementById('simulation-view').classList.remove('hidden');
+        }
+
+        function startGame() {
+            const classInput = document.getElementById("class-input").value.trim();
+            const numberInput = document.getElementById("number-input").value.trim();
+
+            if (classInput === "" || numberInput === "") {
+                document.getElementById("error-msg").style.display = "block";
+                return;
+            }
+            document.getElementById("error-msg").style.display = "none";
+
+            S_Class = classInput;
+            S_Number = numberInput;
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+
+            document.getElementById("setup-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questions[currentQuestionIndex];
+            document.getElementById("question-text").innerText = q.question;
+            document.getElementById("question-counter").innerText = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+            
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(index);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIndex) {
+            if (selectedIndex === questions[currentQuestionIndex].answer) S_Mark++;
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            document.getElementById("quiz-screen").classList.add("hidden");
+            document.getElementById("result-screen").classList.remove("hidden");
+            document.getElementById("final-score").innerText = S_Mark;
+            
+            document.getElementById("end-buttons").classList.remove("hidden");
+            document.getElementById("submit-feedback").classList.add("hidden");
+        }
+
+        function handleTryAgain() {
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+            document.getElementById("result-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function handleFinishAndSubmit() {
+            submitToGoogleForm();
+            document.getElementById("end-buttons").classList.add("hidden");
+            document.getElementById("submit-feedback").classList.remove("hidden");
+        }
+
+        function submitToGoogleForm() {
+            const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfFzZoWQ2mQN95FD9vnZvrNgQvDbTEVb0fs45KTHEqZW6P2vw/formResponse";
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", S_Class);
+            formData.append("entry.777103265", S_Number);
+            formData.append("entry.1173990498", S_Mark);
+
+            fetch(formUrl, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("Submitted successfully to Google Forms.");
+            }).catch((error) => {
+                console.error("Error submitting form:", error);
+            });
+        }
+
+        window.onload = initSimulation;
+    </script>
+</body>
+</html>
