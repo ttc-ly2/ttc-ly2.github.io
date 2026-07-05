@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Panel Simulation</title>
+    <style>
+        /* --- General Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2, h3 { color: #2c3e50; text-align: center; margin-bottom: 10px; }
+        .hidden { display: none !important; }
+        
+        button {
+            padding: 10px 15px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-warning { background-color: #f39c12; color: white; }
+        .btn-warning:hover { background-color: #e67e22; }
+        .btn-off { background-color: #ecf0f1; color: #2c3e50; border: 1px solid #bdc3c7;}
+        .btn-off:hover { background-color: #d5dbdb; }
+
+        /* --- Simulation Layout --- */
+        #simulation-view {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Upper Row (Inputs) */
+        .upper-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .data-set {
+            background: #eef2f3;
+            padding: 15px;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 280px;
+            border: 1px solid #dcdde1;
+        }
+        .data-set h4 {
+            margin-top: 0;
+            color: #2980b9;
+            border-bottom: 2px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        .input-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .input-group label { font-weight: bold; font-size: 14px; }
+        .input-group input[type="number"], .input-group input[type="text"] {
+            width: 90px;
+            padding: 5px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .input-group input[readonly] {
+            background-color: #ecf0f1;
+            color: #e74c3c;
+        }
+        .unit { width: 35px; display: inline-block; font-size: 13px; color: #7f8c8d; margin-left: 5px;}
+
+        /* Lower Row */
+        .lower-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .lower-col {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        canvas.sim-canvas {
+            background: #fafafa;
+            border: 1px solid #ecf0f1;
+            border-radius: 5px;
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+        }
+        .calculation-steps {
+            background: #fdfbf7;
+            border: 2px solid #f39c12;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1.6;
+            width: 100%;
+            max-width: 800px;
+            margin-top: 15px;
+            box-sizing: border-box;
+            display: none; /* Shown after answer is pressed */
+        }
+
+        /* --- Quiz View Styles --- */
+        #quiz-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+        .quiz-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+        .quiz-container input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0 20px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .option-btn {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            text-align: left;
+            font-weight: normal;
+            width: 100%;
+            margin-top: 10px;
+            border: 1px solid #bdc3c7;
+        }
+        .option-btn:hover { background-color: #d5dbdb; }
+        #question-counter {
+            font-weight: bold;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        #submit-feedback {
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================== -->
+    <!-- 1. SIMULATION VIEW                             -->
+    <!-- ============================================== -->
+    <div id="simulation-view">
+        <h1>Solar Panel Simulation</h1>
+
+        <!-- UPPER ROW -->
+        <div class="upper-row">
+            
+            <!-- Physics Data Input -->
+            <div class="data-set">
+                <h4>Panel & Light Data</h4>
+                <div class="input-group">
+                    <label>Solar Constant (I):</label>
+                    <div><input type="number" id="val-I" value="1000" step="10"><span class="unit">W/m²</span></div>
+                </div>
+                <div class="input-group">
+                    <label>Panel Area (A):</label>
+                    <div><input type="number" id="val-A" value="2" step="0.5"><span class="unit">m²</span></div>
+                </div>
+                <div class="input-group">
+                    <label>Angle of Incidence (&theta;):<br><span style="font-size: 11px; color:#7f8c8d; font-weight:normal;">(From the Normal)</span></label>
+                    <div><input type="number" id="val-angle" value="0" min="0" max="90" step="1"><span class="unit">°</span></div>
+                </div>
+            </div>
+
+            <!-- Output & Action -->
+            <div class="data-set" style="border-color: #f39c12; background: #fdfbf7;">
+                <h4>Calculate Generated Power</h4>
+                <div class="input-group" style="margin-top: 20px;">
+                    <label>Power Generated (P):</label>
+                    <div><input type="text" id="val-P" value="?" readonly><span class="unit">W</span></div>
+                </div>
+                <button class="btn-success" style="width: 100%; margin-top: 25px;" onclick="calculateAnswer()">Show Answer & Steps</button>
+            </div>
+
+            <!-- Start Quiz -->
+            <div class="data-set" style="display: flex; align-items: center; justify-content: center; background: transparent; border: none; box-shadow: none;">
+                <button class="btn-warning" style="padding: 20px; font-size: 18px;" onclick="switchToQuiz()">Start the Quiz</button>
+            </div>
+            
+        </div>
+
+        <!-- LOWER ROW -->
+        <div class="lower-row">
+            
+            <!-- Center Column: Ray Diagram & Calculations -->
+            <div class="lower-col">
+                <h3>Incident Sunlight Diagram</h3>
+                <canvas id="ray-canvas" class="sim-canvas" width="800" height="400"></canvas>
+                
+                <div id="calc-steps" class="calculation-steps">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 2. QUIZ VIEW                                   -->
+    <!-- ============================================== -->
+    <div id="quiz-wrapper" class="hidden">
+        <div class="quiz-container">
+            
+            <!-- Setup Screen -->
+            <div id="setup-screen">
+                <h2>Solar Power Quiz</h2>
+                <p>Welcome to the Physics Quiz.</p>
+                
+                <label for="class-input">Class (e.g., 3A):</label><br>
+                <input type="text" id="class-input" placeholder="Enter your Class"><br>
+                
+                <label for="number-input">Class Number (e.g., 15):</label><br>
+                <input type="text" id="number-input" placeholder="Enter your Class Number"><br>
+                
+                <button class="btn-primary" style="width:100%" onclick="startGame()">Start Game</button>
+                <button class="btn-off" style="width:100%; margin-top:10px;" onclick="switchToSimulation()">Back to Simulation</button>
+                <p id="error-msg" style="color: red; display: none;">Please enter both Class and Class Number.</p>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="hidden">
+                <div id="question-counter">Question 1 of 10</div>
+                <h2 id="question-text">Question text goes here</h2>
+                <div id="options-container"></div>
+            </div>
+
+            <!-- Result Screen -->
+            <div id="result-screen" class="hidden">
+                <h2>Quiz Completed!</h2>
+                <h3>Your Score: <span id="final-score">0</span> / 10</h3>
+                
+                <div id="end-buttons">
+                    <button class="btn-success" style="width:100%" onclick="handleFinishAndSubmit()">Finish and Submit</button>
+                    <button class="btn-off" style="width:100%; margin-top:10px;" onclick="handleTryAgain()">Try Again</button>
+                </div>
+
+                <p id="submit-feedback" class="hidden">Your results have been successfully submitted!</p>
+                <button class="btn-off" style="width:100%; margin-top: 15px;" onclick="switchToSimulation()">Return to Simulation</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /* ====================================================================== */
+        /*                       SIMULATION LOGIC                                 */
+        /* ====================================================================== */
+        
+        // Data Elements
+        const inputI = document.getElementById('val-I');
+        const inputA = document.getElementById('val-A');
+        const inputAngle = document.getElementById('val-angle');
+        const inputP = document.getElementById('val-P');
+        const calcSteps = document.getElementById('calc-steps');
+
+        // Canvas: Ray Diagram
+        const rayCanvas = document.getElementById('ray-canvas');
+        const rCtx = rayCanvas.getContext('2d');
+
+        // Global Visual State
+        let displayAngle = 0; // Incidence angle from normal
+        let animationOffset = 0;
+
+        // Automatically update the visuals when the inputs are modified
+        [inputI, inputA, inputAngle].forEach(el => {
+            el.addEventListener('input', () => {
+                let val = parseFloat(inputAngle.value);
+                if (!isNaN(val)) {
+                    displayAngle = Math.max(0, Math.min(90, val));
+                }
+                calcSteps.style.display = 'none'; // Hide steps until button pressed
+                inputP.value = "?";
+            });
+        });
+
+        function initSimulation() {
+            requestAnimationFrame(renderLoop);
+        }
+
+        function calculateAnswer() {
+            let I = parseFloat(inputI.value);
+            let A = parseFloat(inputA.value);
+            let theta = parseFloat(inputAngle.value);
+
+            if (isNaN(I) || isNaN(A) || isNaN(theta)) return alert("Please enter valid numbers.");
+
+            displayAngle = Math.max(0, Math.min(90, theta));
+            inputAngle.value = displayAngle;
+
+            // Power Formula using angle from Normal: P = I * A * cos(theta)
+            let rad = displayAngle * Math.PI / 180;
+            let P = I * A * Math.cos(rad);
+
+            inputP.value = P.toFixed(2);
+
+            calcSteps.innerHTML = `
+                <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Calculation Steps</div>
+                When the angle of incidence (&theta;) is measured from the <b>Normal</b>, the effective area capturing light is proportional to cos(&theta;).<br><br>
+                <b>P = Solar Constant (I) &times; Area (A) &times; cos(&theta;)</b><br><br>
+                P = ${I} &times; ${A} &times; cos(${displayAngle}&deg;)<br>
+                P = ${I} &times; ${A} &times; ${Math.cos(rad).toFixed(4)}<br>
+                <b>P = ${P.toFixed(2)} W</b>
+            `;
+            calcSteps.style.display = 'block';
+        }
+
+        // --- Render Loop ---
+        function renderLoop() {
+            animationOffset += 1.0; // Slower dash animation
+            if(animationOffset > 40) animationOffset = 0;
+
+            drawRayDiagram();
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        // --- Ray Diagram ---
+        function drawRayDiagram() {
+            rCtx.clearRect(0, 0, rayCanvas.width, rayCanvas.height);
+            
+            let cw = rayCanvas.width;
+            let ch = rayCanvas.height;
+
+            let pcx = cw / 2;
+            let pcy = ch - 80;
+
+            // Draw Panel (Horizontal at the bottom)
+            rCtx.lineWidth = 10;
+            rCtx.strokeStyle = "#34495e";
+            rCtx.beginPath();
+            rCtx.moveTo(120, pcy);
+            rCtx.lineTo(cw - 120, pcy);
+            rCtx.stroke();
+            
+            // Draw Sub-cells on panel
+            rCtx.lineWidth = 2;
+            rCtx.strokeStyle = "#bdc3c7";
+            for(let x=150; x<cw-120; x+=50){
+                rCtx.beginPath();
+                rCtx.moveTo(x, pcy);
+                rCtx.lineTo(x, pcy + 10);
+                rCtx.stroke();
+            }
+
+            // Draw Normal Line
+            rCtx.strokeStyle = "#7f8c8d";
+            rCtx.lineWidth = 2;
+            rCtx.setLineDash([5, 5]);
+            rCtx.beginPath();
+            rCtx.moveTo(pcx, pcy);
+            rCtx.lineTo(pcx, pcy - 250);
+            rCtx.stroke();
+            rCtx.setLineDash([]);
+            
+            rCtx.fillStyle = "#7f8c8d";
+            rCtx.font = "16px Arial";
+            rCtx.fillText("Normal", pcx - 28, pcy - 260);
+
+            // Calculate Ray trajectory based on angle of incidence (from normal)
+            let rad = displayAngle * Math.PI / 180;
+            
+            // Vector pointing DOWN towards the panel: 
+            let dx = Math.sin(rad); // Horizontal spread
+            let dy = Math.cos(rad); // Vertical drop
+
+            rCtx.strokeStyle = "rgba(241, 196, 15, 0.8)";
+            rCtx.lineWidth = 4;
+            rCtx.setLineDash([20, 10]);
+            rCtx.lineDashOffset = -animationOffset;
+
+            // Draw multiple parallel rays
+            for (let i = -4; i <= 4; i++) {
+                let hitX = pcx + i * 50;
+                let hitY = pcy;
+                
+                let startX = hitX - dx * 350; 
+                let startY = hitY - dy * 350;
+
+                rCtx.beginPath();
+                rCtx.moveTo(startX, startY);
+                rCtx.lineTo(hitX, hitY);
+                rCtx.stroke();
+            }
+            rCtx.setLineDash([]);
+
+            // Draw angle arc (between Normal and Ray)
+            if (displayAngle > 0) {
+                rCtx.beginPath();
+                // Arc from Normal (-PI/2) to Ray (-PI/2 - rad)
+                rCtx.arc(pcx, pcy, 100, -Math.PI/2 - rad, -Math.PI/2);
+                rCtx.strokeStyle = "#e74c3c";
+                rCtx.lineWidth = 3;
+                rCtx.stroke();
+                
+                rCtx.fillStyle = "#c0392b";
+                rCtx.font = "bold 18px Arial";
+                // Text position
+                let textRad = -Math.PI/2 - rad/2;
+                rCtx.fillText(`θ = ${displayAngle}°`, pcx + 120*Math.cos(textRad) - 20, pcy + 120*Math.sin(textRad));
+            }
+        }
+
+        window.onload = initSimulation;
+
+        /* ====================================================================== */
+        /*                          QUIZ LOGIC                                    */
+        /* ====================================================================== */
+        
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQuestionIndex = 0;
+
+        // 10 MC Questions
+        const questions = [
+            {
+                question: "What is the main active material used in most solar panels to generate electricity?",
+                options: ["Silicon", "Copper", "Iron", "Plastic"],
+                answer: 0
+            },
+            {
+                question: "A solar cell converts light energy directly into which type of energy?",
+                options: ["Electrical", "Thermal", "Mechanical", "Chemical"],
+                answer: 0
+            },
+            {
+                question: "Which of the following describes the junction formed in a standard solar cell?",
+                options: ["P-N junction", "A-C junction", "Positive-Negative metallic bond", "Magnetic pole"],
+                answer: 0
+            },
+            {
+                question: "When a photon hits the depletion zone of a solar cell, it creates what specific pair?",
+                options: ["An electron-hole pair", "A proton-neutron pair", "Two positive ions", "A photon-electron pair"],
+                answer: 0
+            },
+            {
+                question: "How is the power output of a solar panel affected by the angle of incidence (from the normal)?",
+                options: ["It is maximum when the angle of incidence is 0° (light hits straight down)", "It is maximum when the angle of incidence is 90°", "The angle has no effect on power", "It only works perfectly at 45 degrees"],
+                answer: 0
+            },
+            {
+                question: "If a solar panel has an area of 2 m² and the solar constant is 1000 W/m², what is the maximum theoretical power it receives when the angle of incidence is 0°?",
+                options: ["2000 W", "1000 W", "500 W", "0 W"],
+                answer: 0
+            },
+            {
+                question: "The 'Solar Constant' generally refers to...",
+                options: ["The amount of solar energy hitting 1 m² of Earth's outer atmosphere per second", "The constant speed of the sun", "The constant temperature of the solar panel", "The fixed voltage of a solar cell"],
+                answer: 0
+            },
+            {
+                question: "In the N-type layer of a solar cell, what are the majority charge carriers that flow through the external wire?",
+                options: ["Electrons", "Holes", "Protons", "Neutrons"],
+                answer: 0
+            },
+            {
+                question: "In a P-type layer, the lack of an electron creates a positive charge carrier known as a:",
+                options: ["Hole", "Proton", "Positron", "Ion"],
+                answer: 0
+            },
+            {
+                question: "What happens if a solar panel is tilted such that the angle of incidence becomes 60° instead of 0°?",
+                options: ["The generated power decreases by half (since cos 60° = 0.5)", "The generated power doubles", "The panel stops working entirely", "The power output remains exactly the same"],
+                answer: 0
+            }
+        ];
+
+        function switchToQuiz() {
+            document.getElementById('simulation-view').classList.add('hidden');
+            document.getElementById('quiz-wrapper').classList.remove('hidden');
+        }
+
+        function switchToSimulation() {
+            document.getElementById('quiz-wrapper').classList.add('hidden');
+            document.getElementById('simulation-view').classList.remove('hidden');
+        }
+
+        function startGame() {
+            const classInput = document.getElementById("class-input").value.trim();
+            const numberInput = document.getElementById("number-input").value.trim();
+
+            if (classInput === "" || numberInput === "") {
+                document.getElementById("error-msg").style.display = "block";
+                return;
+            }
+            document.getElementById("error-msg").style.display = "none";
+
+            S_Class = classInput;
+            S_Number = numberInput;
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+
+            document.getElementById("setup-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questions[currentQuestionIndex];
+            document.getElementById("question-text").innerText = q.question;
+            document.getElementById("question-counter").innerText = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+            
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+
+            // Shuffle the options to make the quiz better
+            let opts = q.options.map((opt, i) => ({text: opt, isCorrect: i === q.answer}));
+            opts.sort(() => Math.random() - 0.5);
+
+            opts.forEach((opt) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt.text;
+                btn.onclick = () => checkAnswer(opt.isCorrect);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(isCorrect) {
+            if (isCorrect) {
+                S_Mark++;
+            }
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            document.getElementById("quiz-screen").classList.add("hidden");
+            document.getElementById("result-screen").classList.remove("hidden");
+            document.getElementById("final-score").innerText = S_Mark;
+            
+            document.getElementById("end-buttons").classList.remove("hidden");
+            document.getElementById("submit-feedback").classList.add("hidden");
+        }
+
+        function handleTryAgain() {
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+            document.getElementById("result-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function handleFinishAndSubmit() {
+            submitToGoogleForm();
+            document.getElementById("end-buttons").classList.add("hidden");
+            document.getElementById("submit-feedback").classList.remove("hidden");
+        }
+
+        function submitToGoogleForm() {
+            // Solar Panel Quiz Google Form URL
+            const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSetc8vm-GnuIpFkpaslLqi5akqwjiLUYBp2FGqZHwJoZXI9Kw/formResponse";
+            
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", S_Class);
+            formData.append("entry.777103265", S_Number);
+            formData.append("entry.1173990498", S_Mark);
+
+            fetch(formUrl, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("Submitted successfully to Google Forms.");
+            }).catch((error) => {
+                console.error("Error submitting form:", error);
+            });
+        }
+    </script>
+</body>
+</html>
