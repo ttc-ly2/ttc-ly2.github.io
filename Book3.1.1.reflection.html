@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflection of Light Simulation & Quiz</title>
+    <style>
+        /* --- General Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2, h3 { color: #2c3e50; text-align: center; }
+        .hidden { display: none !important; }
+        
+        button {
+            padding: 12px 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .btn-off { background-color: #ecf0f1; color: #2c3e50; }
+        .btn-off:hover { background-color: #d5dbdb; }
+        .btn-on { background-color: #3498db; color: white; }
+        .btn-on:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-secondary { background-color: #95a5a6; color: white; }
+        .btn-secondary:hover { background-color: #7f8c8d; }
+        .btn-warning { background-color: #f39c12; color: white; }
+        .btn-warning:hover { background-color: #e67e22; }
+
+        /* --- Simulation View Styles --- */
+        #simulation-view {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .left-col {
+            flex: 1;
+            min-width: 320px;
+            background: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .right-col {
+            flex: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #fff;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        canvas {
+            background-color: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            max-width: 100%;
+        }
+        h3 {
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .slider-group {
+            margin-top: 5px;
+            background: #eef2f3;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .slider-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+            text-align: center;
+        }
+        input[type=range] { width: 100%; cursor: pointer; }
+
+        /* --- Quiz View Styles --- */
+        #quiz-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+        .quiz-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0 20px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .option-btn {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            text-align: left;
+            font-weight: normal;
+        }
+        .option-btn:hover { background-color: #d5dbdb; }
+        #question-counter {
+            font-weight: bold;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        #submit-feedback {
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================== -->
+    <!-- 1. SIMULATION VIEW                             -->
+    <!-- ============================================== -->
+    <div id="simulation-view">
+        <h1>Reflection of Light</h1>
+
+        <div class="container">
+            <!-- Left Column: Controls -->
+            <div class="left-col">
+                <h3>Simulation Controls</h3>
+                
+                <button id="btn-rays" class="btn-off" onclick="toggleRays()">
+                    Mode: 1 Ray
+                </button>
+                
+                <button id="btn-image" class="btn-off" onclick="toggleImage()">
+                    Show Virtual Image: OFF
+                </button>
+                
+                <button id="btn-diagram" class="btn-off" onclick="toggleDiagram()">
+                    Show Complete Ray Diagram: OFF
+                </button>
+                
+                <!-- Slider: Mirror Angle -->
+                <div class="slider-group">
+                    <label for="mirror-slider">Mirror Tilt Angle: <span id="mirror-display">0</span>°</label>
+                    <input type="range" id="mirror-slider" min="-45" max="45" value="0" step="1">
+                </div>
+
+                <!-- Slider: Light Source Position -->
+                <div class="slider-group">
+                    <label for="source-slider">Light Source Position: <span id="source-display">45</span>°</label>
+                    <input type="range" id="source-slider" min="-90" max="90" value="45" step="1">
+                </div>
+
+                <!-- Start Quiz Button -->
+                <button class="btn-warning" onclick="switchToQuiz()">Start a Reflection Quiz</button>
+            </div>
+
+            <!-- Right Column: Canvas Diagram -->
+            <div class="right-col">
+                <canvas id="sim-canvas" width="600" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 2. QUIZ VIEW                                   -->
+    <!-- ============================================== -->
+    <div id="quiz-wrapper" class="hidden">
+        <div class="quiz-container">
+            
+            <!-- Setup Screen -->
+            <div id="setup-screen">
+                <h2>Reflection Quiz</h2>
+                <p>Welcome to the S3 Physics Reflection test.</p>
+                
+                <label for="class-input">Class (e.g., 3A):</label><br>
+                <input type="text" id="class-input" placeholder="Enter your Class"><br>
+                
+                <label for="number-input">Class Number (e.g., 15):</label><br>
+                <input type="text" id="number-input" placeholder="Enter your Class Number"><br>
+                
+                <button class="btn-on" onclick="startGame()">Start Game</button>
+                <button class="btn-secondary" onclick="switchToSimulation()">Back to Simulation</button>
+                <p id="error-msg" style="color: red; display: none;">Please enter both Class and Class Number.</p>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="hidden">
+                <div id="question-counter">Question 1 of 5</div>
+                <h2 id="question-text">Question text goes here</h2>
+                <div id="options-container"></div>
+            </div>
+
+            <!-- Result Screen -->
+            <div id="result-screen" class="hidden">
+                <h2>Quiz Completed!</h2>
+                <h3>Your Score: <span id="final-score">0</span> / 5</h3>
+                
+                <div id="end-buttons">
+                    <button class="btn-success" onclick="handleFinishAndSubmit()">Finish and Submit</button>
+                    <button class="btn-secondary" onclick="handleTryAgain()">Try Again</button>
+                </div>
+
+                <p id="submit-feedback" class="hidden">Your results have been successfully submitted!</p>
+                <button class="btn-secondary" style="margin-top: 15px;" onclick="switchToSimulation()">Return to Simulation</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /* ====================================================================== */
+        /*                       SIMULATION LOGIC                                 */
+        /* ====================================================================== */
+        
+        let raysMode = 1;         
+        let showImage = false;    
+        let showDiagram = false;  
+        
+        let mirrorAngle = 0;      
+        let sourceAngle = 45;     
+
+        const btnRays = document.getElementById('btn-rays');
+        const btnImage = document.getElementById('btn-image');
+        const btnDiagram = document.getElementById('btn-diagram');
+        
+        const mirrorSlider = document.getElementById('mirror-slider');
+        const mirrorDisplay = document.getElementById('mirror-display');
+        
+        const sourceSlider = document.getElementById('source-slider');
+        const sourceDisplay = document.getElementById('source-display');
+        
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+
+        const cx = 300;
+        const cy = 300;
+        const orbitRadius = 240;
+
+        mirrorSlider.addEventListener('input', (e) => {
+            mirrorAngle = parseInt(e.target.value);
+            mirrorDisplay.innerText = mirrorAngle;
+            drawScene();
+        });
+
+        sourceSlider.addEventListener('input', (e) => {
+            sourceAngle = parseInt(e.target.value);
+            sourceDisplay.innerText = sourceAngle; 
+            drawScene();
+        });
+
+        function toggleRays() {
+            raysMode = (raysMode === 1) ? 3 : 1;
+            btnRays.className = raysMode === 3 ? "btn-on" : "btn-off";
+            btnRays.innerText = raysMode === 3 ? "Mode: 3 Diverging Rays" : "Mode: 1 Ray";
+            drawScene();
+        }
+
+        function toggleImage() {
+            showImage = !showImage;
+            btnImage.className = showImage ? "btn-on" : "btn-off";
+            btnImage.innerText = showImage ? "Show Virtual Image: ON" : "Show Virtual Image: OFF";
+            drawScene();
+        }
+
+        function toggleDiagram() {
+            showDiagram = !showDiagram;
+            btnDiagram.className = showDiagram ? "btn-on" : "btn-off";
+            btnDiagram.innerText = showDiagram ? "Show Complete Ray Diagram: ON" : "Show Complete Ray Diagram: OFF";
+            drawScene();
+        }
+
+        function drawMirrorLocal() {
+            ctx.save();
+            ctx.strokeStyle = '#34495e';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(-250, 0);
+            ctx.lineTo(250, 0);
+            ctx.stroke();
+
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#95a5a6';
+            for (let x = -240; x <= 250; x += 10) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x - 10, 10);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawProtractorLocal() {
+            ctx.save();
+            ctx.strokeStyle = '#bdc3c7';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, 180, Math.PI, 0);
+            ctx.stroke();
+
+            ctx.fillStyle = '#7f8c8d';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = '12px Arial';
+
+            for (let deg = -90; deg <= 90; deg += 5) {
+                let rad = (deg - 90) * Math.PI / 180; 
+                
+                let isMajor = (deg % 30 === 0);
+                let isMed = (deg % 10 === 0);
+                let tickLen = isMajor ? 15 : (isMed ? 10 : 5);
+                
+                let xOut = 180 * Math.cos(rad);
+                let yOut = 180 * Math.sin(rad);
+                let xIn = (180 - tickLen) * Math.cos(rad);
+                let yIn = (180 - tickLen) * Math.sin(rad);
+
+                ctx.beginPath();
+                ctx.moveTo(xOut, yOut);
+                ctx.lineTo(xIn, yIn);
+                ctx.stroke();
+
+                if (isMajor) {
+                    let textRad = 155;
+                    let textX = textRad * Math.cos(rad);
+                    let textY = textRad * Math.sin(rad);
+                    
+                    ctx.save();
+                    ctx.translate(textX, textY);
+                    ctx.rotate(rad + Math.PI/2); 
+                    ctx.fillText(Math.abs(deg) + "°", 0, 0);
+                    ctx.restore();
+                }
+            }
+            ctx.restore();
+        }
+
+        function drawArrowRayLocal(x1, y1, x2, y2, color, isDashed = false, opacity = 1) {
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = opacity;
+            if (isDashed) ctx.setLineDash([5, 5]);
+            
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            
+            if (!isDashed) {
+                let mx = (x1 + x2) / 2;
+                let my = (y1 + y2) / 2;
+                let angle = Math.atan2(y2 - y1, x2 - x1);
+                
+                ctx.beginPath();
+                ctx.moveTo(mx, my);
+                ctx.lineTo(mx - 12 * Math.cos(angle - Math.PI/7), my - 12 * Math.sin(angle - Math.PI/7));
+                ctx.lineTo(mx - 12 * Math.cos(angle + Math.PI/7), my - 12 * Math.sin(angle + Math.PI/7));
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            
+            ctx.translate(cx, cy);
+            let mirrorRad = mirrorAngle * Math.PI / 180;
+            ctx.rotate(mirrorRad);
+
+            drawProtractorLocal();
+            drawMirrorLocal();
+
+            let relAngleDeg = sourceAngle - mirrorAngle;
+            let relRad = relAngleDeg * Math.PI / 180;
+
+            let sx = orbitRadius * Math.sin(relRad);
+            let sy = -orbitRadius * Math.cos(relRad); 
+
+            let ix = sx;
+            let iy = -sy; 
+
+            let targets = (raysMode === 1) ? [0] : [-60, 0, 60];
+            let isSourceFront = (sy < 0);
+
+            targets.forEach(tx => {
+                let ty = 0;
+                let vx = tx - sx;
+                let vy = ty - sy;
+                
+                let rx = vx;
+                let ry = -vy;
+
+                let rayLen = 400;
+                let len = Math.hypot(rx, ry);
+                rx = (rx / len) * rayLen;
+                ry = (ry / len) * rayLen;
+
+                drawArrowRayLocal(sx, sy, tx, ty, '#e74c3c');
+                
+                if (isSourceFront) {
+                    drawArrowRayLocal(tx, ty, tx + rx, ty + ry, '#e67e22');
+                    if (showDiagram) {
+                        drawArrowRayLocal(tx, ty, ix, iy, '#c0392b', true, 0.4);
+                    }
+                }
+            });
+
+            if (showDiagram && isSourceFront) {
+                ctx.strokeStyle = '#34495e';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(0, -200);
+                ctx.lineTo(0, 200);
+                ctx.stroke();
+
+                let normAngle = -Math.PI / 2; 
+                let incAngle = normAngle + relRad;
+                
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(241, 196, 15, 0.3)';
+                ctx.strokeStyle = '#f39c12';
+                ctx.lineWidth = 1.5;
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+
+                let startI = normAngle;
+                let endI = incAngle;
+                if (relAngleDeg < 0) { startI = incAngle; endI = normAngle; }
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, 60, startI, endI);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                
+                let midI = normAngle + relRad / 2;
+                ctx.fillStyle = '#d35400';
+                ctx.fillText(`i = ${Math.abs(relAngleDeg)}°`, 80 * Math.cos(midI), 80 * Math.sin(midI));
+
+                let refAngle = normAngle - relRad;
+                let startR = normAngle;
+                let endR = refAngle;
+                if (relAngleDeg > 0) { startR = refAngle; endR = normAngle; }
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, 60, startR, endR);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                let midR = normAngle - relRad / 2;
+                ctx.fillText(`r = ${Math.abs(relAngleDeg)}°`, 80 * Math.cos(midR), 80 * Math.sin(midR));
+            }
+
+            ctx.beginPath();
+            ctx.arc(sx, sy, 10, 0, Math.PI * 2);
+            ctx.fillStyle = '#f1c40f';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#d35400';
+            ctx.stroke();
+
+            if (showImage && isSourceFront) {
+                ctx.beginPath();
+                ctx.arc(ix, iy, 10, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(189, 195, 199, 0.5)';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(127, 140, 141, 0.5)';
+                ctx.stroke();
+            }
+
+            if (!isSourceFront) {
+                ctx.fillStyle = '#c0392b';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText("Source is behind the mirror!", 0, -100);
+            }
+
+            ctx.restore(); 
+        }
+
+        window.onload = drawScene;
+
+        /* ====================================================================== */
+        /*                          QUIZ LOGIC                                    */
+        /* ====================================================================== */
+        
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQuestionIndex = 0;
+
+        // Reflection Questions
+        const questions = [
+            {
+                question: "According to the Law of Reflection, which of the following is always true?",
+                options: ["Angle of incidence is greater than angle of reflection", "Angle of incidence is equal to angle of reflection", "Angle of incidence is less than angle of reflection", "The reflected ray lies in a different plane"],
+                answer: 1
+            },
+            {
+                question: "Which of the following describes the image formed by a plane mirror?",
+                options: ["Real, inverted, and smaller", "Virtual, erect, and laterally inverted", "Real, erect, and magnified", "Virtual, inverted, and same size"],
+                answer: 1
+            },
+            {
+                question: "If an incident ray hits a plane mirror with an angle of incidence of 30°, what is the angle between the incident ray and the reflected ray?",
+                options: ["15°", "30°", "60°", "90°"],
+                answer: 2
+            },
+            {
+                question: "An object is placed 3 meters in front of a plane mirror. What is the distance between the object and its image?",
+                options: ["1.5 meters", "3 meters", "6 meters", "9 meters"],
+                answer: 2
+            },
+            {
+                question: "If you rotate a plane mirror by an angle of θ (keeping the incident ray fixed), the reflected ray will rotate by an angle of:",
+                options: ["θ", "1.5θ", "2θ", "0.5θ"],
+                answer: 2
+            }
+        ];
+
+        function switchToQuiz() {
+            document.getElementById('simulation-view').classList.add('hidden');
+            document.getElementById('quiz-wrapper').classList.remove('hidden');
+        }
+
+        function switchToSimulation() {
+            document.getElementById('quiz-wrapper').classList.add('hidden');
+            document.getElementById('simulation-view').classList.remove('hidden');
+            drawScene(); // Make sure canvas renders properly when unhidden
+        }
+
+        function startGame() {
+            const classInput = document.getElementById("class-input").value.trim();
+            const numberInput = document.getElementById("number-input").value.trim();
+
+            if (classInput === "" || numberInput === "") {
+                document.getElementById("error-msg").style.display = "block";
+                return;
+            }
+            document.getElementById("error-msg").style.display = "none";
+
+            S_Class = classInput;
+            S_Number = numberInput;
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+
+            document.getElementById("setup-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questions[currentQuestionIndex];
+            document.getElementById("question-text").innerText = q.question;
+            document.getElementById("question-counter").innerText = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+            
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(index);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIndex) {
+            if (selectedIndex === questions[currentQuestionIndex].answer) {
+                S_Mark++;
+            }
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            document.getElementById("quiz-screen").classList.add("hidden");
+            document.getElementById("result-screen").classList.remove("hidden");
+            document.getElementById("final-score").innerText = S_Mark;
+            
+            document.getElementById("end-buttons").classList.remove("hidden");
+            document.getElementById("submit-feedback").classList.add("hidden");
+        }
+
+        function handleTryAgain() {
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+            document.getElementById("result-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function handleFinishAndSubmit() {
+            submitToGoogleForm();
+            document.getElementById("end-buttons").classList.add("hidden");
+            document.getElementById("submit-feedback").classList.remove("hidden");
+        }
+
+        function submitToGoogleForm() {
+            // New Google Form URL for Reflection Quiz
+            const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSc0ezliau_pnFXXZBSd4fR9wh_lm-K9TSjWmunzVA9kUZxktg/formResponse";
+            
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", S_Class);
+            formData.append("entry.777103265", S_Number);
+            formData.append("entry.1173990498", S_Mark);
+
+            fetch(formUrl, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("Submitted successfully to Google Forms.");
+            }).catch((error) => {
+                console.error("Error submitting form:", error);
+            });
+        }
+    </script>
+</body>
+</html>
