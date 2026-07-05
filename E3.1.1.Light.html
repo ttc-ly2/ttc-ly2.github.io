@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Illuminance & Luminous Flux Simulation</title>
+    <style>
+        /* --- General Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2, h3 { color: #2c3e50; text-align: center; margin-bottom: 10px; }
+        .hidden { display: none !important; }
+        
+        button {
+            padding: 10px 15px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-warning { background-color: #f39c12; color: white; }
+        .btn-warning:hover { background-color: #e67e22; }
+        .btn-off { background-color: #ecf0f1; color: #2c3e50; border: 1px solid #bdc3c7;}
+        .btn-off:hover { background-color: #d5dbdb; }
+
+        /* --- Simulation Layout --- */
+        #simulation-view {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Upper Row (Inputs) */
+        .upper-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .data-set {
+            background: #eef2f3;
+            padding: 15px;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 320px;
+            border: 1px solid #dcdde1;
+        }
+        .data-set h4 {
+            margin-top: 0;
+            color: #2980b9;
+            border-bottom: 2px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        .input-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .input-group label { font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px;}
+        .input-group input[type="number"], .input-group input[type="text"] {
+            width: 100px;
+            padding: 6px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .input-group input[readonly] {
+            background-color: #ecf0f1;
+            color: #e74c3c;
+        }
+        .unit { width: 35px; display: inline-block; font-size: 13px; color: #7f8c8d; margin-left: 5px;}
+        
+        .calculation-steps {
+            background: #fdfbf7;
+            border: 2px solid #f39c12;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1.6;
+            margin-top: 15px;
+            display: none; /* Shown after answer is pressed */
+        }
+
+        /* Lower Row (Simulation) */
+        .lower-row {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .sim-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+        canvas#light-canvas {
+            background: #111; /* Dark background to show light */
+            border: 1px solid #333;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 800px;
+            height: 450px;
+        }
+
+        /* --- Quiz View Styles --- */
+        #quiz-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+        .quiz-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+        .quiz-container input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0 20px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .option-btn {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            text-align: left;
+            font-weight: normal;
+            width: 100%;
+            margin-top: 10px;
+            border: 1px solid #bdc3c7;
+        }
+        .option-btn:hover { background-color: #d5dbdb; }
+        #question-counter {
+            font-weight: bold;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        #submit-feedback {
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================== -->
+    <!-- 1. SIMULATION VIEW                             -->
+    <!-- ============================================== -->
+    <div id="simulation-view">
+        <h1>Illuminance of a Point Light Source</h1>
+
+        <!-- UPPER ROW -->
+        <div class="upper-row">
+            
+            <div class="data-set">
+                <h4>Select Unknown Variable:</h4>
+                <div style="display:flex; flex-wrap: wrap; gap: 10px; font-size: 14px; font-weight: bold; margin-bottom: 15px;">
+                    <label><input type="radio" name="solveTarget" value="E" checked onchange="toggleUnknownMode()"> Illuminance (E)</label>
+                    <label><input type="radio" name="solveTarget" value="Phi" onchange="toggleUnknownMode()"> Luminous Flux (&Phi;)</label>
+                    <label><input type="radio" name="solveTarget" value="d" onchange="toggleUnknownMode()"> Distance (d)</label>
+                    <label><input type="radio" name="solveTarget" value="theta" onchange="toggleUnknownMode()"> Angle (&theta;)</label>
+                </div>
+
+                <div class="input-group">
+                    <label>Luminous Flux (&Phi;):</label>
+                    <div><input type="number" id="val-phi" value="1000" step="50"><span class="unit">lm</span></div>
+                </div>
+                
+                <div class="input-group">
+                    <label>Distance (d):</label>
+                    <div><input type="number" id="val-d" value="2" step="0.5"><span class="unit">m</span></div>
+                </div>
+                
+                <div class="input-group">
+                    <label>Angle to Normal (&theta;):</label>
+                    <div><input type="number" id="val-theta" value="0" min="0" max="89" step="1"><span class="unit">°</span></div>
+                </div>
+
+                <div class="input-group">
+                    <label>Illuminance (E):</label>
+                    <div><input type="text" id="val-E" value="?" readonly><span class="unit">lx</span></div>
+                </div>
+
+                <button class="btn-success" style="width: 100%; margin-top: 10px;" onclick="calculateAnswer()">Show Answer & Steps</button>
+            </div>
+
+            <!-- Quiz Start and Steps -->
+            <div style="flex: 1; display: flex; flex-direction: column;">
+                <button class="btn-warning" style="padding: 20px; font-size: 18px; width: 100%;" onclick="switchToQuiz()">Start the Quiz</button>
+                
+                <div id="calc-steps" class="calculation-steps">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- LOWER ROW -->
+        <div class="lower-row">
+            <h3>Visual Simulation</h3>
+            <div class="sim-container">
+                <canvas id="light-canvas" width="800" height="450"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 2. QUIZ VIEW                                   -->
+    <!-- ============================================== -->
+    <div id="quiz-wrapper" class="hidden">
+        <div class="quiz-container">
+            
+            <!-- Setup Screen -->
+            <div id="setup-screen">
+                <h2>Light Physics Quiz</h2>
+                <p>Welcome to the Physics Quiz.</p>
+                
+                <label for="class-input">Class (e.g., 3A):</label><br>
+                <input type="text" id="class-input" placeholder="Enter your Class"><br>
+                
+                <label for="name-input">Name / Class Number:</label><br>
+                <input type="text" id="name-input" placeholder="Enter Name or Number"><br>
+                
+                <button class="btn-primary" style="width:100%" onclick="startGame()">Start Game</button>
+                <button class="btn-off" style="width:100%; margin-top:10px;" onclick="switchToSimulation()">Back to Simulation</button>
+                <p id="error-msg" style="color: red; display: none;">Please enter both Class and Name/Number.</p>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="hidden">
+                <div id="question-counter">Question 1 of 10</div>
+                <h2 id="question-text">Question text goes here</h2>
+                <div id="options-container"></div>
+            </div>
+
+            <!-- Result Screen -->
+            <div id="result-screen" class="hidden">
+                <h2>Quiz Completed!</h2>
+                <h3>Your Score: <span id="final-score">0</span> / 10</h3>
+                
+                <div id="end-buttons">
+                    <button class="btn-success" style="width:100%" onclick="handleFinishAndSubmit()">Finish and Submit</button>
+                    <button class="btn-off" style="width:100%; margin-top:10px;" onclick="handleTryAgain()">Try Again</button>
+                </div>
+
+                <p id="submit-feedback" class="hidden">Your results have been successfully submitted!</p>
+                <button class="btn-off" style="width:100%; margin-top: 15px;" onclick="switchToSimulation()">Return to Simulation</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /* ====================================================================== */
+        /*                       SIMULATION LOGIC                                 */
+        /* ====================================================================== */
+        
+        const inputs = {
+            'Phi': document.getElementById('val-phi'),
+            'd': document.getElementById('val-d'),
+            'theta': document.getElementById('val-theta'),
+            'E': document.getElementById('val-E')
+        };
+        const calcSteps = document.getElementById('calc-steps');
+        
+        // Canvas Setup
+        const canvas = document.getElementById('light-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Animation Variables
+        let animationOffset = 0;
+
+        // Automatically update the visuals when the inputs are modified
+        for (let key in inputs) {
+            inputs[key].addEventListener('input', () => {
+                calcSteps.style.display = 'none'; // Hide steps until button pressed
+            });
+        }
+
+        function initSimulation() {
+            requestAnimationFrame(renderLoop);
+        }
+
+        function toggleUnknownMode() {
+            calcSteps.style.display = 'none';
+            const target = document.querySelector('input[name="solveTarget"]:checked').value;
+            
+            // Reset all to input mode
+            for (let key in inputs) {
+                inputs[key].readOnly = false;
+                inputs[key].type = "number";
+                inputs[key].style.backgroundColor = "#fff";
+            }
+
+            // Set the target to readonly
+            inputs[target].readOnly = true;
+            inputs[target].type = "text";
+            inputs[target].value = "?";
+            inputs[target].style.backgroundColor = "#ecf0f1";
+
+            // Supply defaults if they were cleared
+            if(target !== 'Phi' && inputs['Phi'].value === '?') inputs['Phi'].value = 1000;
+            if(target !== 'd' && inputs['d'].value === '?') inputs['d'].value = 2;
+            if(target !== 'theta' && inputs['theta'].value === '?') inputs['theta'].value = 0;
+            if(target !== 'E' && inputs['E'].value === '?') inputs['E'].value = 19.89;
+        }
+
+        function calculateAnswer() {
+            const target = document.querySelector('input[name="solveTarget"]:checked').value;
+            
+            let Phi = parseFloat(inputs['Phi'].value);
+            let d = parseFloat(inputs['d'].value);
+            let theta = parseFloat(inputs['theta'].value);
+            let E = parseFloat(inputs['E'].value);
+
+            let html = "";
+            let pi = Math.PI;
+
+            // Physics Formula: E = (Phi * cos(theta)) / (4 * pi * d^2)
+
+            if (target === 'E') {
+                if(isNaN(Phi) || isNaN(d) || isNaN(theta)) return alert("Fill in Φ, d, and θ");
+                
+                let rad = theta * pi / 180;
+                E = (Phi * Math.cos(rad)) / (4 * pi * Math.pow(d, 2));
+                inputs['E'].value = E.toFixed(2);
+                
+                html = `
+                    <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Steps (Find Illuminance, E)</div>
+                    The illuminance of a surface by a point source is given by:<br>
+                    <b>E = (&Phi; &times; cos&theta;) / (4 &pi; d²)</b><br><br>
+                    E = (${Phi} &times; cos(${theta}°)) / (4 &times; &pi; &times; ${d}²)<br>
+                    E = (${Phi} &times; ${Math.cos(rad).toFixed(4)}) / (4 &times; &pi; &times; ${Math.pow(d, 2)})<br>
+                    E = ${(Phi * Math.cos(rad)).toFixed(2)} / ${(4 * pi * Math.pow(d, 2)).toFixed(2)}<br>
+                    <b>E = ${E.toFixed(2)} lx</b>
+                `;
+            } 
+            else if (target === 'Phi') {
+                if(isNaN(E) || isNaN(d) || isNaN(theta)) return alert("Fill in E, d, and θ");
+                
+                let rad = theta * pi / 180;
+                if (Math.cos(rad) <= 0) return alert("Angle must be less than 90° to calculate Flux.");
+
+                Phi = (E * 4 * pi * Math.pow(d, 2)) / Math.cos(rad);
+                inputs['Phi'].value = Phi.toFixed(2);
+                
+                html = `
+                    <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Steps (Find Luminous Flux, &Phi;)</div>
+                    <b>E = (&Phi; &times; cos&theta;) / (4 &pi; d²)</b><br>
+                    Rearranging for &Phi;:<br>
+                    <b>&Phi; = (E &times; 4 &pi; d²) / cos&theta;</b><br><br>
+                    &Phi; = (${E} &times; 4 &times; &pi; &times; ${d}²) / cos(${theta}°)<br>
+                    &Phi; = ${(E * 4 * pi * Math.pow(d, 2)).toFixed(2)} / ${Math.cos(rad).toFixed(4)}<br>
+                    <b>&Phi; = ${Phi.toFixed(2)} lm</b>
+                `;
+            }
+            else if (target === 'd') {
+                if(isNaN(E) || isNaN(Phi) || isNaN(theta)) return alert("Fill in E, Φ, and θ");
+                
+                let rad = theta * pi / 180;
+                if (E <= 0) return alert("Illuminance must be > 0 to find distance.");
+
+                let dSquared = (Phi * Math.cos(rad)) / (4 * pi * E);
+                if (dSquared < 0) return alert("Invalid inputs.");
+                
+                d = Math.sqrt(dSquared);
+                inputs['d'].value = d.toFixed(2);
+
+                html = `
+                    <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Steps (Find Distance, d)</div>
+                    <b>E = (&Phi; &times; cos&theta;) / (4 &pi; d²)</b><br>
+                    Rearranging for d²:<br>
+                    <b>d² = (&Phi; &times; cos&theta;) / (4 &pi; E)</b><br><br>
+                    d² = (${Phi} &times; cos(${theta}°)) / (4 &times; &pi; &times; ${E})<br>
+                    d² = ${(Phi * Math.cos(rad)).toFixed(2)} / ${(4 * pi * E).toFixed(2)}<br>
+                    d² = ${dSquared.toFixed(4)}<br>
+                    <b>d = ${d.toFixed(2)} m</b>
+                `;
+            }
+            else if (target === 'theta') {
+                if(isNaN(E) || isNaN(Phi) || isNaN(d)) return alert("Fill in E, Φ, and d");
+                
+                let cosTheta = (E * 4 * pi * Math.pow(d, 2)) / Phi;
+                
+                if (cosTheta > 1 || cosTheta < 0) {
+                    return alert("Impossible values! The illuminance E is too high/low for this flux and distance.");
+                }
+
+                let rad = Math.acos(cosTheta);
+                theta = rad * 180 / pi;
+                inputs['theta'].value = theta.toFixed(1);
+
+                html = `
+                    <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Steps (Find Angle, &theta;)</div>
+                    <b>E = (&Phi; &times; cos&theta;) / (4 &pi; d²)</b><br>
+                    Rearranging for cos&theta;:<br>
+                    <b>cos&theta; = (E &times; 4 &pi; d²) / &Phi;</b><br><br>
+                    cos&theta; = (${E} &times; 4 &times; &pi; &times; ${d}²) / ${Phi}<br>
+                    cos&theta; = ${(E * 4 * pi * Math.pow(d, 2)).toFixed(2)} / ${Phi}<br>
+                    cos&theta; = ${cosTheta.toFixed(4)}<br>
+                    &theta; = cos⁻¹(${cosTheta.toFixed(4)})<br>
+                    <b>&theta; = ${theta.toFixed(1)}&deg;</b>
+                `;
+            }
+
+            calcSteps.innerHTML = html;
+            calcSteps.style.display = 'block';
+        }
+
+        // --- Canvas Animation ---
+        function renderLoop() {
+            animationOffset += 2;
+            if(animationOffset > 40) animationOffset = 0;
+
+            drawSimulation();
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        function drawSimulation() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let cw = canvas.width;
+            let ch = canvas.height;
+
+            // Get Current Variables
+            let Phi = parseFloat(inputs['Phi'].value) || 0;
+            let d = parseFloat(inputs['d'].value) || 0;
+            let theta = parseFloat(inputs['theta'].value) || 0;
+            let E = parseFloat(inputs['E'].value) || 0;
+            
+            let rad = theta * Math.PI / 180;
+
+            // Positions
+            let sx = cw / 2; // Source X
+            let sy = 80;     // Source Y
+            
+            // Limit visual distance to fit canvas
+            let visualD = Math.max(100, Math.min(d * 80, 250)); 
+            
+            let targetX = sx;
+            let targetY = sy + visualD;
+
+            // Draw Light Source (Bulb)
+            // Glow effect based on Phi
+            let glowRadius = Math.min(100, 20 + (Phi / 20));
+            let grad = ctx.createRadialGradient(sx, sy, 5, sx, sy, glowRadius);
+            grad.addColorStop(0, "rgba(255, 255, 150, 1)");
+            grad.addColorStop(0.3, "rgba(255, 200, 50, 0.6)");
+            grad.addColorStop(1, "rgba(255, 200, 50, 0)");
+            
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(sx, sy, glowRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Bulb graphic
+            ctx.fillStyle = "#f1c40f";
+            ctx.beginPath();
+            ctx.arc(sx, sy, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#ecf0f1";
+            ctx.fillRect(sx - 8, sy - 25, 16, 15);
+
+            // Draw Light Ray (dashed streaming line)
+            ctx.strokeStyle = "rgba(241, 196, 15, 0.9)";
+            ctx.lineWidth = 3;
+            ctx.setLineDash([15, 10]);
+            ctx.lineDashOffset = -animationOffset;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy + 15);
+            ctx.lineTo(targetX, targetY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw Surface
+            // The surface is tilted by theta. If ray is vertical, normal is tilted by theta.
+            // Surface is perpendicular to Normal.
+            ctx.save();
+            ctx.translate(targetX, targetY);
+            ctx.rotate(-rad); // Rotate the surface
+
+            // Calculate brightness color based on E
+            let brightness = Math.min(255, Math.floor(E * 10)); // Arbitrary scale for visuals
+            ctx.fillStyle = `rgb(${brightness}, ${brightness}, ${brightness})`;
+            if (E <= 0) ctx.fillStyle = "#222"; // Dark if 0
+            
+            ctx.shadowColor = "rgba(241, 196, 15, 0.5)";
+            ctx.shadowBlur = brightness / 10;
+            
+            ctx.fillRect(-100, 0, 200, 15);
+            ctx.strokeStyle = "#bdc3c7";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-100, 0, 200, 15);
+            
+            // Draw Normal Line
+            ctx.strokeStyle = "#3498db";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -120);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.restore(); // Restore unrotated context
+
+            // Draw Angle Arc
+            if (theta > 0 && theta < 90) {
+                ctx.beginPath();
+                ctx.arc(targetX, targetY, 60, -Math.PI/2 - rad, -Math.PI/2);
+                ctx.strokeStyle = "#e74c3c";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.fillStyle = "#e74c3c";
+                ctx.font = "bold 16px Arial";
+                // Text position
+                let textRad = -Math.PI/2 - rad/2;
+                ctx.fillText(`θ = ${theta}°`, targetX + 75*Math.cos(textRad) - 15, targetY + 75*Math.sin(textRad));
+            }
+
+            // Draw Labels
+            ctx.fillStyle = "#fff";
+            ctx.font = "14px Arial";
+            // Normal Label
+            ctx.fillText("Normal", targetX + 10, targetY - 100);
+            
+            // Flux Label
+            ctx.fillStyle = "#f1c40f";
+            ctx.fillText(`Φ = ${Phi} lm`, sx + 30, sy);
+            
+            // Distance Label
+            ctx.fillStyle = "#ecf0f1";
+            ctx.fillText(`d = ${d} m`, sx + 10, (sy + targetY) / 2);
+
+            // Illuminance Label (at surface)
+            ctx.fillStyle = "#2ecc71";
+            ctx.fillText(`E = ${E} lx`, targetX + 110, targetY + 25);
+        }
+
+        window.onload = initSimulation;
+
+        /* ====================================================================== */
+        /*                          QUIZ LOGIC                                    */
+        /* ====================================================================== */
+        
+        let S_Class = "";
+        let S_Name = "";
+        let S_Mark = 0;
+        let currentQuestionIndex = 0;
+
+        // 10 MC Questions about Light, Luminous Flux, and Illuminance
+        const questions = [
+            {
+                question: "What is the standard SI unit for Luminous Flux?",
+                options: ["Lumen (lm)", "Lux (lx)", "Candela (cd)", "Watt (W)"],
+                answer: 0
+            },
+            {
+                question: "What is the standard SI unit for Illuminance?",
+                options: ["Lux (lx)", "Lumen (lm)", "Candela (cd)", "Joules (J)"],
+                answer: 0
+            },
+            {
+                question: "How is Illuminance (E) physically defined?",
+                options: ["Luminous flux per unit area", "Total light emitted by a source", "Luminous intensity per unit solid angle", "The speed of light in a vacuum"],
+                answer: 0
+            },
+            {
+                question: "According to the Inverse Square Law, if you double the distance (d) from a point light source, the illuminance (E) will be:",
+                options: ["Reduced to one quarter (1/4)", "Reduced by half (1/2)", "Doubled (2x)", "Unaffected"],
+                answer: 0
+            },
+            {
+                question: "If light hits a surface perfectly perpendicular to it (along the Normal), the angle of incidence θ is:",
+                options: ["0°", "90°", "45°", "180°"],
+                answer: 0
+            },
+            {
+                question: "What happens to the illuminance of a surface if it is tilted away so the angle θ increases toward 90°?",
+                options: ["The illuminance decreases", "The illuminance increases", "The illuminance stays the same", "The luminous flux of the bulb decreases"],
+                answer: 0
+            },
+            {
+                question: "A point light source radiates light...",
+                options: ["Equally in all directions spherically", "In a single focused laser beam", "Only in the visible green spectrum", "Without producing any shadows"],
+                answer: 0
+            },
+            {
+                question: "The formula for the surface area of a sphere is 4πd². Why does this appear in the point source illuminance formula?",
+                options: ["Because the light spreads out spherically over that area", "Because light travels in circles", "Because 4π is a constant for refraction", "Because mirrors are usually curved"],
+                answer: 0
+            },
+            {
+                question: "If a light bulb emits 1256 lumens (approx 400π), what is its luminous intensity (I = Φ / 4π) in candelas?",
+                options: ["100 cd", "314 cd", "1256 cd", "400 cd"],
+                answer: 0
+            },
+            {
+                question: "Which practical scenario demonstrates Lambert's Cosine Law (E ∝ cos θ)?",
+                options: ["A flashlight beam looking dimmer and spread out when shining at an angle on the floor", "A mirror reflecting light perfectly", "Light bending as it enters water", "A magnifying glass burning a leaf"],
+                answer: 0
+            }
+        ];
+
+        function switchToQuiz() {
+            document.getElementById('simulation-view').classList.add('hidden');
+            document.getElementById('quiz-wrapper').classList.remove('hidden');
+        }
+
+        function switchToSimulation() {
+            document.getElementById('quiz-wrapper').classList.add('hidden');
+            document.getElementById('simulation-view').classList.remove('hidden');
+        }
+
+        function startGame() {
+            const classInput = document.getElementById("class-input").value.trim();
+            const nameInput = document.getElementById("name-input").value.trim();
+
+            if (classInput === "" || nameInput === "") {
+                document.getElementById("error-msg").style.display = "block";
+                return;
+            }
+            document.getElementById("error-msg").style.display = "none";
+
+            S_Class = classInput;
+            S_Name = nameInput;
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+
+            document.getElementById("setup-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questions[currentQuestionIndex];
+            document.getElementById("question-text").innerText = q.question;
+            document.getElementById("question-counter").innerText = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+            
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+
+            // Shuffle the options to make the quiz dynamic
+            let opts = q.options.map((opt, i) => ({text: opt, isCorrect: i === q.answer}));
+            opts.sort(() => Math.random() - 0.5);
+
+            opts.forEach((opt) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt.text;
+                btn.onclick = () => checkAnswer(opt.isCorrect);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(isCorrect) {
+            if (isCorrect) {
+                S_Mark++;
+            }
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            document.getElementById("quiz-screen").classList.add("hidden");
+            document.getElementById("result-screen").classList.remove("hidden");
+            document.getElementById("final-score").innerText = S_Mark;
+            
+            document.getElementById("end-buttons").classList.remove("hidden");
+            document.getElementById("submit-feedback").classList.add("hidden");
+        }
+
+        function handleTryAgain() {
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+            document.getElementById("result-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function handleFinishAndSubmit() {
+            submitToGoogleForm();
+            document.getElementById("end-buttons").classList.add("hidden");
+            document.getElementById("submit-feedback").classList.remove("hidden");
+        }
+
+        function submitToGoogleForm() {
+            // Provided Google Form URL for Light/Illuminance Quiz
+            const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSdtDT08rsHjoCnzXG4T2GcgSqob3svH3yuUQg-UdAlL4k43kg/formResponse";
+            
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", S_Class);
+            formData.append("entry.777103265", S_Name);
+            formData.append("entry.1173990498", S_Mark);
+
+            fetch(formUrl, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("Submitted successfully to Google Forms.");
+            }).catch((error) => {
+                console.error("Error submitting form:", error);
+            });
+        }
+    </script>
+</body>
+</html>
