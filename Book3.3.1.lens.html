@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lens Image Formation Simulation</title>
+    <style>
+        /* --- General Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2 { color: #2c3e50; text-align: center; margin-bottom: 10px; }
+        .hidden { display: none !important; }
+        
+        button {
+            padding: 10px 15px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-off { background-color: #ecf0f1; color: #2c3e50; }
+        .btn-off:hover { background-color: #d5dbdb; }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-warning { background-color: #f39c12; color: white; }
+        .btn-warning:hover { background-color: #e67e22; }
+
+        /* --- Simulation Layout --- */
+        #simulation-view {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Upper Row */
+        .upper-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+            background: #eef2f3;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .slider-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #2980b9;
+        }
+        .slider-group input { cursor: pointer; }
+
+        /* Checkbox Group */
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            background: #eef2f3;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        .checkbox-group strong {
+            margin-bottom: 4px;
+            display: inline-block;
+            color: #2980b9;
+            font-size: 14px;
+        }
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            margin-bottom: 2px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        /* Middle Row (Canvas) */
+        .middle-row {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+        }
+        canvas {
+            background-color: #fafafa;
+            display: block;
+            width: 100%;
+            cursor: grab; 
+        }
+        canvas:active { cursor: grabbing; }
+        .instruction-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #7f8c8d;
+            pointer-events: none;
+            border: 1px solid #ddd;
+        }
+
+        /* Lower Row (Data) */
+        .lower-row {
+            display: flex;
+            justify-content: space-around;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .data-box {
+            text-align: center;
+            background: #eef2f3;
+            padding: 10px 15px;
+            border-radius: 8px;
+            min-width: 120px;
+            font-size: 14px;
+        }
+        .data-box span {
+            display: block;
+            font-size: 20px;
+            font-weight: bold;
+            color: #2980b9;
+            margin-top: 5px;
+        }
+
+        /* --- Quiz View Styles --- */
+        #quiz-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+        .quiz-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        .quiz-container input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0 20px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .option-btn {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            text-align: left;
+            font-weight: normal;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .option-btn:hover { background-color: #d5dbdb; }
+        #question-counter {
+            font-weight: bold;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        #submit-feedback {
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================== -->
+    <!-- 1. SIMULATION VIEW                             -->
+    <!-- ============================================== -->
+    <div id="simulation-view">
+        <h1>Lens Image Formation Simulation</h1>
+
+        <!-- Upper Row: Controls -->
+        <div class="upper-row">
+            <!-- Slider -->
+            <div class="slider-group">
+                <label for="focal-slider">Focal Length (f): <span id="focal-val">100</span></label>
+                <input type="range" id="focal-slider" min="50" max="250" value="100" step="5">
+            </div>
+
+            <!-- Button 1: Lens Type -->
+            <button id="btn-lens" class="btn-primary" onclick="toggleLens()">Lens: Convex</button>
+            
+            <!-- Checkboxes: Ray Toggle -->
+            <div class="checkbox-group">
+                <strong>Show Rays:</strong>
+                <label style="color: #e74c3c;"><input type="checkbox" id="ray1-check" checked> Parallel Ray</label>
+                <label style="color: #27ae60;"><input type="checkbox" id="ray2-check" checked> Center Ray</label>
+                <label style="color: #8e44ad;"><input type="checkbox" id="ray3-check" checked> Focal Ray</label>
+            </div>
+            
+            <!-- Button 3: Grid Size -->
+            <button id="btn-grid" class="btn-off" onclick="toggleGrid()">Grid: Off</button>
+            
+            <!-- Button 4: Start Quiz -->
+            <button class="btn-warning" onclick="switchToQuiz()">Start Quiz</button>
+        </div>
+
+        <!-- Middle Row: Ray Diagram -->
+        <div class="middle-row">
+            <div class="instruction-overlay">Drag the top of the object arrow to move it</div>
+            <canvas id="sim-canvas" width="1000" height="400"></canvas>
+        </div>
+
+        <!-- Lower Row: Data -->
+        <div class="lower-row">
+            <div class="data-box">Object Dist. (u) <span id="data-u">0.0</span></div>
+            <div class="data-box">Image Dist. (v) <span id="data-v">0.0</span></div>
+            <div class="data-box">Object Height (hₒ) <span id="data-ho">0.0</span></div>
+            <div class="data-box">Image Height (hᵢ) <span id="data-hi">0.0</span></div>
+            <div class="data-box">Magnification (m) <span id="data-m">0.0</span></div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 2. QUIZ VIEW                                   -->
+    <!-- ============================================== -->
+    <div id="quiz-wrapper" class="hidden">
+        <div class="quiz-container">
+            
+            <!-- Setup Screen -->
+            <div id="setup-screen">
+                <h2>Lens Quiz</h2>
+                <p>Welcome to the S3 Physics Lens test.</p>
+                
+                <label for="class-input">Class (e.g., 3A):</label><br>
+                <input type="text" id="class-input" placeholder="Enter your Class"><br>
+                
+                <label for="number-input">Class Number (e.g., 15):</label><br>
+                <input type="text" id="number-input" placeholder="Enter your Class Number"><br>
+                
+                <button class="btn-primary" style="width:100%" onclick="startGame()">Start Game</button>
+                <button class="btn-off" style="width:100%; margin-top:10px;" onclick="switchToSimulation()">Back to Simulation</button>
+                <p id="error-msg" style="color: red; display: none;">Please enter both Class and Class Number.</p>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="hidden">
+                <div id="question-counter">Question 1 of 5</div>
+                <h2 id="question-text">Question text goes here</h2>
+                <div id="options-container"></div>
+            </div>
+
+            <!-- Result Screen -->
+            <div id="result-screen" class="hidden">
+                <h2>Quiz Completed!</h2>
+                <h3>Your Score: <span id="final-score">0</span> / 5</h3>
+                
+                <div id="end-buttons">
+                    <button class="btn-success" style="width:100%" onclick="handleFinishAndSubmit()">Finish and Submit</button>
+                    <button class="btn-off" style="width:100%; margin-top:10px;" onclick="handleTryAgain()">Try Again</button>
+                </div>
+
+                <p id="submit-feedback" class="hidden">Your results have been successfully submitted!</p>
+                <button class="btn-off" style="width:100%; margin-top: 15px;" onclick="switchToSimulation()">Return to Simulation</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /* ====================================================================== */
+        /*                       SIMULATION LOGIC                                 */
+        /* ====================================================================== */
+        
+        // State
+        let isConvex = true; 
+        let focalLength = 100;
+        let gridSize = 0; // 0=Off, 1=Small(20), 2=Large(50)
+        
+        let showRay1 = true;
+        let showRay2 = true;
+        let showRay3 = true;
+
+        // Coordinates relative to Optical Center (Center of canvas)
+        let objX = -200; 
+        let objY = -80; // Negative Y means UP on the screen
+        
+        // Drag state
+        let isDragging = false;
+        
+        // Canvas Setup
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+
+        // UI Elements
+        const focalSlider = document.getElementById('focal-slider');
+        const focalVal = document.getElementById('focal-val');
+        const btnLens = document.getElementById('btn-lens');
+        const btnGrid = document.getElementById('btn-grid');
+        
+        // Data Displays
+        const dataU = document.getElementById('data-u');
+        const dataV = document.getElementById('data-v');
+        const dataHo = document.getElementById('data-ho');
+        const dataHi = document.getElementById('data-hi');
+        const dataM = document.getElementById('data-m');
+
+        // Checkbox Listeners
+        document.getElementById('ray1-check').addEventListener('change', (e) => { showRay1 = e.target.checked; drawScene(); });
+        document.getElementById('ray2-check').addEventListener('change', (e) => { showRay2 = e.target.checked; drawScene(); });
+        document.getElementById('ray3-check').addEventListener('change', (e) => { showRay3 = e.target.checked; drawScene(); });
+
+        // Initial setup
+        focalSlider.addEventListener('input', (e) => {
+            focalLength = parseInt(e.target.value);
+            focalVal.innerText = focalLength;
+            drawScene();
+        });
+
+        // Toggles
+        function toggleLens() {
+            isConvex = !isConvex;
+            btnLens.innerText = `Lens: ${isConvex ? 'Convex' : 'Concave'}`;
+            btnLens.className = isConvex ? 'btn-primary' : 'btn-off';
+            drawScene();
+        }
+
+        function toggleGrid() {
+            gridSize = (gridSize + 1) % 3;
+            let labels = ["Grid: Off", "Grid: Small", "Grid: Large"];
+            btnGrid.innerText = labels[gridSize];
+            btnGrid.className = gridSize === 0 ? "btn-off" : "btn-primary";
+            drawScene();
+        }
+
+        // --- Mouse Drag Interaction ---
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left - cx;
+            const mouseY = e.clientY - rect.top - cy;
+
+            // Check if mouse is near the tip of the object arrow
+            let dist = Math.hypot(mouseX - objX, mouseY - objY);
+            if (dist < 20) {
+                isDragging = true;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            let newX = e.clientX - rect.left - cx;
+            let newY = e.clientY - rect.top - cy;
+
+            // Constrain object to the left side of the lens
+            if (newX > -20) newX = -20; 
+            
+            objX = newX;
+            objY = newY;
+            drawScene();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+        });
+
+        // --- Drawing Engine ---
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(cx, cy); // Origin at optical center
+
+            // 1. Draw Grid
+            if (gridSize > 0) {
+                let step = gridSize === 1 ? 20 : 50;
+                ctx.strokeStyle = '#ecf0f1';
+                ctx.lineWidth = 1;
+                for (let i = -cx; i < cx; i += step) {
+                    ctx.beginPath(); ctx.moveTo(i, -cy); ctx.lineTo(i, cy); ctx.stroke();
+                }
+                for (let j = -cy; j < cy; j += step) {
+                    ctx.beginPath(); ctx.moveTo(-cx, j); ctx.lineTo(cx, j); ctx.stroke();
+                }
+            }
+
+            // 2. Draw Principal Axis
+            ctx.strokeStyle = '#7f8c8d';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-cx, 0);
+            ctx.lineTo(cx, 0);
+            ctx.stroke();
+
+            // 3. Draw Lens
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, -150);
+            ctx.lineTo(0, 150);
+            ctx.stroke();
+            
+            // Draw Lens Arrows to indicate type
+            ctx.fillStyle = '#2c3e50';
+            if (isConvex) {
+                // Top arrowhead (pointing up)
+                ctx.beginPath(); ctx.moveTo(0, -160); ctx.lineTo(-10, -145); ctx.lineTo(10, -145); ctx.fill();
+                // Bottom arrowhead (pointing down)
+                ctx.beginPath(); ctx.moveTo(0, 160); ctx.lineTo(-10, 145); ctx.lineTo(10, 145); ctx.fill();
+            } else {
+                // Top arrowhead (inverted)
+                ctx.beginPath(); ctx.moveTo(0, -145); ctx.lineTo(-10, -160); ctx.lineTo(10, -160); ctx.fill();
+                // Bottom arrowhead (inverted)
+                ctx.beginPath(); ctx.moveTo(0, 145); ctx.lineTo(-10, 160); ctx.lineTo(10, 160); ctx.fill();
+            }
+
+            // 4. Draw Focal Points (F and 2F)
+            ctx.fillStyle = '#c0392b';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            [-2*focalLength, -focalLength, focalLength, 2*focalLength].forEach((px, idx) => {
+                ctx.beginPath();
+                ctx.arc(px, 0, 4, 0, Math.PI*2);
+                ctx.fill();
+                let label = (idx === 1 || idx === 2) ? 'F' : '2F';
+                ctx.fillText(label, px, 20);
+            });
+
+            // 5. Physics Math
+            let f = isConvex ? focalLength : -focalLength;
+            let imgX = 0;
+            let imgY = 0;
+            let isInfinity = false;
+
+            // Lens Formula: 1/f = 1/v - 1/u => v = (u * f) / (u + f)
+            // Note: Object is at objX. So u = objX (negative).
+            if (Math.abs(objX + f) < 0.1 && isConvex) {
+                isInfinity = true;
+            } else {
+                imgX = (objX * f) / (objX + f);
+                imgY = (imgX / objX) * objY; // Magnification m = v / u = imgX / objX
+            }
+
+            let isVirtual = imgX < 0;
+
+            // 6. Draw Arrowed Rays
+            let rColors = ['#e74c3c', '#27ae60', '#8e44ad']; // Red, Green, Purple
+            
+            // Helper function to draw rays with directional arrows
+            let drawArrowRay = (rx1, ry1, rx2, ry2, color, dashed = false) => {
+                if(Math.abs(rx1 - rx2) < 0.1 && Math.abs(ry1 - ry2) < 0.1) return; // Skip zero length
+                
+                ctx.beginPath();
+                ctx.moveTo(rx1, ry1);
+                ctx.lineTo(rx2, ry2);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash(dashed ? [5, 5] : []);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Draw arrow at midpoint for real rays
+                if (!dashed) {
+                    let mx = (rx1 + rx2) / 2;
+                    let my = (ry1 + ry2) / 2;
+                    let angle = Math.atan2(ry2 - ry1, rx2 - rx1);
+
+                    ctx.beginPath();
+                    ctx.moveTo(mx, my);
+                    ctx.lineTo(mx - 10 * Math.cos(angle - Math.PI/7), my - 10 * Math.sin(angle - Math.PI/7));
+                    ctx.lineTo(mx - 10 * Math.cos(angle + Math.PI/7), my - 10 * Math.sin(angle + Math.PI/7));
+                    ctx.closePath();
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                }
+            };
+
+            if (!isInfinity) {
+                // --- Ray 1: Parallel to Principal Axis ---
+                if (showRay1) {
+                    drawArrowRay(objX, objY, 0, objY, rColors[0]); // Incident ray to lens
+                    if (isConvex) {
+                        if (isVirtual) {
+                            drawArrowRay(0, objY, cx, objY - (cx/focalLength)*objY, rColors[0]); // Real forward
+                            drawArrowRay(0, objY, imgX, imgY, rColors[0], true); // Virtual backward
+                        } else {
+                            // Extend real ray to the right edge
+                            let endY = objY + (cx/imgX) * (imgY - objY);
+                            drawArrowRay(0, objY, cx, endY, rColors[0]);
+                        }
+                    } else { // Concave
+                        drawArrowRay(0, objY, cx, objY + (cx/focalLength)*objY, rColors[0]); // Real diverging
+                        drawArrowRay(0, objY, imgX, imgY, rColors[0], true); // Virtual backward
+                    }
+                }
+
+                // --- Ray 2: Through Optical Center ---
+                if (showRay2) {
+                    drawArrowRay(objX, objY, 0, 0, rColors[1]); // Incident to center
+                    if (isVirtual) {
+                        drawArrowRay(0, 0, cx, (cx/objX)*objY, rColors[1]); // Real forward
+                        drawArrowRay(0, 0, imgX, imgY, rColors[1], true); // Virtual backward
+                    } else {
+                        let endY = (cx/imgX) * imgY;
+                        drawArrowRay(0, 0, cx, endY, rColors[1]); // Real passing through image
+                    }
+                }
+
+                // --- Ray 3: Through/Towards Focal Point ---
+                if (showRay3) {
+                    if (isConvex) {
+                        let yHit = objY * (focalLength / (objX + focalLength));
+                        drawArrowRay(objX, objY, 0, yHit, rColors[2]); // Incident to lens
+                        if (isVirtual) {
+                            drawArrowRay(0, yHit, cx, yHit, rColors[2]); // Real forward (parallel)
+                            drawArrowRay(0, yHit, imgX, imgY, rColors[2], true); // Virtual backward
+                        } else {
+                            drawArrowRay(0, yHit, cx, yHit, rColors[2]); // Real forward (parallel)
+                        }
+                    } else { // Concave
+                        let yHit = objY * (-focalLength / (objX - focalLength));
+                        drawArrowRay(objX, objY, 0, yHit, rColors[2]); // Incident to lens
+                        drawArrowRay(0, yHit, cx, yHit, rColors[2]); // Real forward (parallel)
+                        drawArrowRay(0, yHit, imgX, imgY, rColors[2], true); // Virtual backward
+                    }
+                }
+            } else {
+                // Image at Infinity (Parallel Rays)
+                if (showRay1) {
+                    drawArrowRay(objX, objY, 0, objY, rColors[0]);
+                    drawArrowRay(0, objY, cx, objY - (cx/focalLength)*objY, rColors[0]);
+                }
+                if (showRay2) {
+                    drawArrowRay(objX, objY, 0, 0, rColors[1]);
+                    drawArrowRay(0, 0, cx, (cx/objX)*objY, rColors[1]);
+                }
+                ctx.fillStyle = '#e74c3c';
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText("Image at Infinity", 200, -150);
+            }
+
+            // 7. Draw Object Arrow
+            drawVerticalArrow(objX, 0, objY, '#2980b9');
+
+            // 8. Draw Image Arrow
+            if (!isInfinity) {
+                drawVerticalArrow(imgX, 0, imgY, '#e67e22', isVirtual);
+            }
+
+            ctx.restore();
+
+            // 9. Update Data Display
+            // Note: Canvas Y is inverted (negative is up). Flip signs for standard readability.
+            let u = Math.abs(objX);
+            let v = isInfinity ? "∞" : Math.abs(imgX).toFixed(1);
+            let ho = -objY; 
+            let hi = isInfinity ? "∞" : -imgY;
+            let mag = isInfinity ? "∞" : (hi / ho).toFixed(2);
+
+            dataU.innerText = `${u.toFixed(1)} px`;
+            dataV.innerText = isInfinity ? "Infinity" : `${v} px ${isVirtual ? '(Virtual)' : '(Real)'}`;
+            dataHo.innerText = `${ho.toFixed(1)} px`;
+            dataHi.innerText = isInfinity ? "Infinity" : `${hi.toFixed(1)} px ${hi*ho < 0 ? '(Inverted)' : '(Erect)'}`;
+            dataM.innerText = mag;
+        }
+
+        function drawVerticalArrow(x, base, tipY, color, dashed = false) {
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 4;
+            
+            ctx.setLineDash(dashed ? [5, 5] : []);
+            ctx.beginPath();
+            ctx.moveTo(x, base);
+            ctx.lineTo(x, tipY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Arrowhead
+            ctx.beginPath();
+            ctx.moveTo(x, tipY);
+            let dir = tipY < base ? 1 : -1; 
+            ctx.lineTo(x - 8, tipY + dir * 12);
+            ctx.lineTo(x + 8, tipY + dir * 12);
+            ctx.fill();
+        }
+
+        // Init Diagram
+        drawScene();
+
+        /* ====================================================================== */
+        /*                          QUIZ LOGIC                                    */
+        /* ====================================================================== */
+        
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQuestionIndex = 0;
+
+        // Lens Questions for S3 Level
+        const questions = [
+            {
+                question: "A convex lens is also commonly known as a...",
+                options: ["Diverging lens", "Converging lens", "Plane mirror", "Prism"],
+                answer: 1
+            },
+            {
+                question: "If an object is placed exactly at 2F of a convex lens, the image formed is...",
+                options: ["Real, inverted, and same size", "Virtual, erect, and magnified", "Real, inverted, and diminished", "Formed at infinity"],
+                answer: 0
+            },
+            {
+                question: "Which of the following lenses ALWAYS forms a virtual, erect, and diminished image regardless of object position?",
+                options: ["Convex lens", "Concave lens", "Both", "Neither"],
+                answer: 1
+            },
+            {
+                question: "The exact center point of a lens through which light passes undeviated is called the...",
+                options: ["Principal focus", "Center of curvature", "Optical center", "Focal length"],
+                answer: 2
+            },
+            {
+                question: "To use a convex lens as a magnifying glass, where must the object be placed?",
+                options: ["Beyond 2F", "Exactly at F", "Between F and 2F", "Between the lens and F"],
+                answer: 3
+            }
+        ];
+
+        function switchToQuiz() {
+            document.getElementById('simulation-view').classList.add('hidden');
+            document.getElementById('quiz-wrapper').classList.remove('hidden');
+        }
+
+        function switchToSimulation() {
+            document.getElementById('quiz-wrapper').classList.add('hidden');
+            document.getElementById('simulation-view').classList.remove('hidden');
+            drawScene();
+        }
+
+        function startGame() {
+            const classInput = document.getElementById("class-input").value.trim();
+            const numberInput = document.getElementById("number-input").value.trim();
+
+            if (classInput === "" || numberInput === "") {
+                document.getElementById("error-msg").style.display = "block";
+                return;
+            }
+            document.getElementById("error-msg").style.display = "none";
+
+            S_Class = classInput;
+            S_Number = numberInput;
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+
+            document.getElementById("setup-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questions[currentQuestionIndex];
+            document.getElementById("question-text").innerText = q.question;
+            document.getElementById("question-counter").innerText = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+            
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(index);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIndex) {
+            if (selectedIndex === questions[currentQuestionIndex].answer) {
+                S_Mark++;
+            }
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            document.getElementById("quiz-screen").classList.add("hidden");
+            document.getElementById("result-screen").classList.remove("hidden");
+            document.getElementById("final-score").innerText = S_Mark;
+            
+            document.getElementById("end-buttons").classList.remove("hidden");
+            document.getElementById("submit-feedback").classList.add("hidden");
+        }
+
+        function handleTryAgain() {
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+            document.getElementById("result-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function handleFinishAndSubmit() {
+            submitToGoogleForm();
+            document.getElementById("end-buttons").classList.add("hidden");
+            document.getElementById("submit-feedback").classList.remove("hidden");
+        }
+
+        function submitToGoogleForm() {
+            // Provided Google Form URL for Lens Quiz
+            const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSeAfrFCNZ2YTm-flSBKkrEosna4QgTUJ0fgo_Zm3P0CgFoyFQ/formResponse";
+            
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", S_Class);
+            formData.append("entry.777103265", S_Number);
+            formData.append("entry.1173990498", S_Mark);
+
+            fetch(formUrl, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("Submitted successfully to Google Forms.");
+            }).catch((error) => {
+                console.error("Error submitting form:", error);
+            });
+        }
+    </script>
+</body>
+</html>
