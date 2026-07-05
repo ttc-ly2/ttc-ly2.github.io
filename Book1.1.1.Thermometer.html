@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thermometer Calibration Simulation</title>
+    <!-- Include Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- General Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2, h3 { color: #2c3e50; text-align: center; margin-bottom: 10px; }
+        .hidden { display: none !important; }
+        
+        button {
+            padding: 10px 15px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-warning { background-color: #f39c12; color: white; }
+        .btn-warning:hover { background-color: #e67e22; }
+        .btn-off { background-color: #ecf0f1; color: #2c3e50; border: 1px solid #bdc3c7;}
+        .btn-off:hover { background-color: #d5dbdb; }
+
+        /* --- Simulation Layout --- */
+        #simulation-view {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Upper Row (Inputs) */
+        .upper-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .data-set {
+            background: #eef2f3;
+            padding: 15px;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 250px;
+            border: 1px solid #dcdde1;
+        }
+        .data-set h4 {
+            margin-top: 0;
+            color: #2980b9;
+            border-bottom: 2px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        .input-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .input-group label { font-weight: bold; font-size: 14px; }
+        .input-group input[type="number"], .input-group input[type="text"] {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .input-group input[readonly] {
+            background-color: #ecf0f1;
+            color: #e74c3c;
+        }
+        
+        .radio-group { margin-bottom: 10px; font-size: 14px; font-weight: bold; }
+
+        /* Lower Row */
+        .lower-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .lower-col {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        /* Thermometer Canvas & Steps */
+        .thermometer-container {
+            display: flex;
+            width: 100%;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 20px;
+        }
+        canvas#thermometer-canvas {
+            background-color: #fafafa;
+            border: 1px solid #ecf0f1;
+            border-radius: 5px;
+        }
+        .calculation-steps {
+            background: #eef2f3;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1.6;
+            flex: 1;
+            display: none; /* Shown after answer is pressed */
+        }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            position: relative;
+        }
+
+        /* --- Quiz View Styles --- */
+        #quiz-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+        .quiz-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+        .quiz-container input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0 20px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .option-btn {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            text-align: left;
+            font-weight: normal;
+            width: 100%;
+            margin-top: 10px;
+            border: 1px solid #bdc3c7;
+        }
+        .option-btn:hover { background-color: #d5dbdb; }
+        #question-counter {
+            font-weight: bold;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        #submit-feedback {
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================== -->
+    <!-- 1. SIMULATION VIEW                             -->
+    <!-- ============================================== -->
+    <div id="simulation-view">
+        <h1>Calibration of Liquid-in-Glass Thermometer</h1>
+
+        <!-- UPPER ROW -->
+        <div class="upper-row">
+            
+            <!-- Set 1: Lower Fixed Point -->
+            <div class="data-set">
+                <h4>Set 1: Lower Fixed Point</h4>
+                <div class="input-group">
+                    <label>Temperature (T₁):</label>
+                    <div><input type="number" id="t1" value="0"> °C</div>
+                </div>
+                <div class="input-group">
+                    <label>Column Length (L₁):</label>
+                    <div><input type="number" id="l1" value="5"> cm</div>
+                </div>
+            </div>
+
+            <!-- Set 2: Upper Fixed Point -->
+            <div class="data-set">
+                <h4>Set 2: Upper Fixed Point</h4>
+                <div class="input-group">
+                    <label>Temperature (T₂):</label>
+                    <div><input type="number" id="t2" value="100"> °C</div>
+                </div>
+                <div class="input-group">
+                    <label>Column Length (L₂):</label>
+                    <div><input type="number" id="l2" value="30"> cm</div>
+                </div>
+            </div>
+
+            <!-- Set 3: Unknown Point -->
+            <div class="data-set" style="border: 2px solid #f39c12; background: #fdfbf7;">
+                <h4>Set 3: Find Unknown</h4>
+                
+                <div class="radio-group">
+                    <label><input type="radio" name="solveTarget" value="T" checked onchange="toggleUnknownMode()"> Calculate Temp (Tₓ)</label>
+                    <label style="margin-left: 10px;"><input type="radio" name="solveTarget" value="L" onchange="toggleUnknownMode()"> Calculate Length (Lₓ)</label>
+                </div>
+
+                <div class="input-group">
+                    <label>Length (Lₓ):</label>
+                    <div><input type="number" id="lx" value="15"> cm</div>
+                </div>
+                <div class="input-group">
+                    <label>Temperature (Tₓ):</label>
+                    <div><input type="text" id="tx" value="?" readonly> °C</div>
+                </div>
+                
+                <button class="btn-success" style="width: 100%; margin-top: 5px;" onclick="calculateAnswer()">Show Answer & Graph</button>
+            </div>
+
+            <!-- Start Quiz -->
+            <div class="data-set" style="display: flex; align-items: center; justify-content: center; background: transparent; border: none; box-shadow: none;">
+                <button class="btn-warning" style="padding: 20px; font-size: 18px;" onclick="switchToQuiz()">Start the Quiz</button>
+            </div>
+            
+        </div>
+
+        <!-- LOWER ROW -->
+        <div class="lower-row">
+            
+            <!-- Left Column: Thermometer & Steps -->
+            <div class="lower-col">
+                <h3>Thermometer & Calculations</h3>
+                <div class="thermometer-container">
+                    <canvas id="thermometer-canvas" width="180" height="450"></canvas>
+                    
+                    <div id="calc-steps" class="calculation-steps">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Graph -->
+            <div class="lower-col">
+                <h3>Length vs. Temperature Graph</h3>
+                <div class="chart-container">
+                    <canvas id="graphCanvas"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 2. QUIZ VIEW                                   -->
+    <!-- ============================================== -->
+    <div id="quiz-wrapper" class="hidden">
+        <div class="quiz-container">
+            
+            <!-- Setup Screen -->
+            <div id="setup-screen">
+                <h2>Thermometer Calibration Quiz</h2>
+                <p>Welcome to the S3 Physics test.</p>
+                
+                <label for="class-input">Class (e.g., 3A):</label><br>
+                <input type="text" id="class-input" placeholder="Enter your Class"><br>
+                
+                <label for="number-input">Class Number (e.g., 15):</label><br>
+                <input type="text" id="number-input" placeholder="Enter your Class Number"><br>
+                
+                <button class="btn-primary" style="width:100%" onclick="startGame()">Start Game</button>
+                <button class="btn-off" style="width:100%; margin-top:10px;" onclick="switchToSimulation()">Back to Simulation</button>
+                <p id="error-msg" style="color: red; display: none;">Please enter both Class and Class Number.</p>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="hidden">
+                <div id="question-counter">Question 1 of 8</div>
+                <h2 id="question-text">Question text goes here</h2>
+                <div id="options-container"></div>
+            </div>
+
+            <!-- Result Screen -->
+            <div id="result-screen" class="hidden">
+                <h2>Quiz Completed!</h2>
+                <h3>Your Score: <span id="final-score">0</span> / 8</h3>
+                
+                <div id="end-buttons">
+                    <button class="btn-success" style="width:100%" onclick="handleFinishAndSubmit()">Finish and Submit</button>
+                    <button class="btn-off" style="width:100%; margin-top:10px;" onclick="handleTryAgain()">Try Again</button>
+                </div>
+
+                <p id="submit-feedback" class="hidden">Your results have been successfully submitted!</p>
+                <button class="btn-off" style="width:100%; margin-top: 15px;" onclick="switchToSimulation()">Return to Simulation</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /* ====================================================================== */
+        /*                       SIMULATION LOGIC                                 */
+        /* ====================================================================== */
+        
+        let chartInstance = null;
+        let isAnswerShown = false;
+
+        const canvas = document.getElementById('thermometer-canvas');
+        const ctx = canvas.getContext('2d');
+        const calcSteps = document.getElementById('calc-steps');
+        
+        function initSimulation() {
+            // Setup Chart.js
+            const chartCtx = document.getElementById('graphCanvas').getContext('2d');
+            chartInstance = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Calibration Line',
+                            data: [],
+                            borderColor: '#3498db',
+                            backgroundColor: '#2980b9',
+                            borderWidth: 2,
+                            pointRadius: 6,
+                            fill: false,
+                            tension: 0
+                        },
+                        {
+                            label: 'Unknown Point',
+                            data: [],
+                            borderColor: '#e74c3c',
+                            backgroundColor: '#c0392b',
+                            pointStyle: 'rectRot',
+                            pointRadius: 8,
+                            showLine: false
+                        },
+                        {
+                            label: 'Projections',
+                            data: [],
+                            borderColor: '#e74c3c',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { 
+                            type: 'linear', 
+                            title: { display: true, text: 'Temperature (°C)', font: {weight: 'bold', size: 14} }
+                        },
+                        y: { 
+                            title: { display: true, text: 'Length of Column (cm)', font: {weight: 'bold', size: 14} },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+
+            // Bind Event Listeners for real-time updates of Known Data
+            ['t1', 'l1', 't2', 'l2'].forEach(id => {
+                document.getElementById(id).addEventListener('input', handleInputUpdate);
+            });
+            ['tx', 'lx'].forEach(id => {
+                document.getElementById(id).addEventListener('input', hideAnswerOnly);
+            });
+
+            // Trigger initial render
+            handleInputUpdate();
+        }
+
+        // Fired when Known inputs change
+        function handleInputUpdate() {
+            isAnswerShown = false;
+            calcSteps.style.display = 'none';
+            
+            const t1 = parseFloat(document.getElementById('t1').value) || 0;
+            const l1 = parseFloat(document.getElementById('l1').value) || 0;
+            const t2 = parseFloat(document.getElementById('t2').value) || 0;
+            const l2 = parseFloat(document.getElementById('l2').value) || 0;
+            
+            updateChart(t1, l1, t2, l2, null, null, false);
+            renderThermometer(t1, l1, t2, l2, null, null, false);
+        }
+
+        // Fired when Unknown inputs change to reset the graph state
+        function hideAnswerOnly() {
+            if (isAnswerShown) {
+                isAnswerShown = false;
+                calcSteps.style.display = 'none';
+                handleInputUpdate(); // Redraws just the known portions
+            }
+        }
+
+        // Handle switching between solving for T or L
+        function toggleUnknownMode() {
+            const target = document.querySelector('input[name="solveTarget"]:checked').value;
+            const txInput = document.getElementById('tx');
+            const lxInput = document.getElementById('lx');
+
+            if (target === 'T') {
+                txInput.readOnly = true;
+                txInput.value = "?";
+                txInput.style.backgroundColor = "#ecf0f1";
+                
+                lxInput.readOnly = false;
+                lxInput.type = "number";
+                lxInput.style.backgroundColor = "#fff";
+                if(lxInput.value === "?") lxInput.value = 15;
+            } else {
+                lxInput.readOnly = true;
+                lxInput.value = "?";
+                lxInput.type = "text";
+                lxInput.style.backgroundColor = "#ecf0f1";
+                
+                txInput.readOnly = false;
+                txInput.type = "number";
+                txInput.style.backgroundColor = "#fff";
+                if(txInput.value === "?") txInput.value = 50;
+            }
+            
+            handleInputUpdate(); // Clear the answer display
+        }
+
+        function calculateAnswer() {
+            const t1 = parseFloat(document.getElementById('t1').value) || 0;
+            const l1 = parseFloat(document.getElementById('l1').value) || 0;
+            const t2 = parseFloat(document.getElementById('t2').value) || 0;
+            const l2 = parseFloat(document.getElementById('l2').value) || 0;
+            
+            const target = document.querySelector('input[name="solveTarget"]:checked').value;
+            
+            let tx, lx;
+
+            if (target === 'T') {
+                lx = parseFloat(document.getElementById('lx').value);
+                if (isNaN(lx)) { alert("Please input a valid length."); return; }
+                
+                tx = t1 + ((lx - l1) / (l2 - l1)) * (t2 - t1);
+                document.getElementById('tx').value = tx.toFixed(2);
+                
+                calcSteps.innerHTML = `
+                    <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Calculation Steps (Find Tₓ)</div>
+                    Using properties of similar triangles on the calibration graph, or the linear formula:<br><br>
+                    <b>(Tₓ - T₁) / (T₂ - T₁) = (Lₓ - L₁) / (L₂ - L₁)</b><br><br>
+                    (Tₓ - ${t1}) / (${t2} - ${t1}) = (${lx} - ${l1}) / (${l2} - ${l1})<br>
+                    (Tₓ - ${t1}) / ${t2 - t1} = ${(lx - l1).toFixed(2)} / ${(l2 - l1).toFixed(2)}<br>
+                    Tₓ - ${t1} = ${((lx - l1)/(l2 - l1)).toFixed(4)} &times; ${t2 - t1}<br>
+                    <b>Tₓ = ${tx.toFixed(2)} °C</b>
+                `;
+            } else {
+                tx = parseFloat(document.getElementById('tx').value);
+                if (isNaN(tx)) { alert("Please input a valid temperature."); return; }
+
+                lx = l1 + ((tx - t1) / (t2 - t1)) * (l2 - l1);
+                document.getElementById('lx').value = lx.toFixed(2);
+
+                calcSteps.innerHTML = `
+                    <div style="font-weight:bold; color:#2980b9; margin-bottom:10px;">Calculation Steps (Find Lₓ)</div>
+                    Using properties of similar triangles on the calibration graph, or the linear formula:<br><br>
+                    <b>(Lₓ - L₁) / (L₂ - L₁) = (Tₓ - T₁) / (T₂ - T₁)</b><br><br>
+                    (Lₓ - ${l1}) / (${l2} - ${l1}) = (${tx} - ${t1}) / (${t2} - ${t1})<br>
+                    (Lₓ - ${l1}) / ${l2 - l1} = ${(tx - t1).toFixed(2)} / ${(t2 - t1).toFixed(2)}<br>
+                    Lₓ - ${l1} = ${((tx - t1)/(t2 - t1)).toFixed(4)} &times; ${l2 - l1}<br>
+                    <b>Lₓ = ${lx.toFixed(2)} cm</b>
+                `;
+            }
+
+            calcSteps.style.display = 'block';
+            isAnswerShown = true;
+            
+            updateChart(t1, l1, t2, l2, tx, lx, true);
+            renderThermometer(t1, l1, t2, l2, tx, lx, true);
+        }
+
+        function updateChart(t1, l1, t2, l2, tx, lx, showAnswer) {
+            // Known Calibration Line
+            chartInstance.data.datasets[0].data = [
+                {x: t1, y: l1},
+                {x: t2, y: l2}
+            ];
+            
+            if (showAnswer) {
+                // Unknown Point
+                chartInstance.data.datasets[1].data = [
+                    {x: tx, y: lx}
+                ];
+
+                // Dashed projections to axes (Extending to T=0 for vertical axis display)
+                chartInstance.data.datasets[2].data = [
+                    {x: tx, y: 0},
+                    {x: tx, y: lx},
+                    {x: 0, y: lx} 
+                ];
+            } else {
+                // Clear Unknown datasets
+                chartInstance.data.datasets[1].data = [];
+                chartInstance.data.datasets[2].data = [];
+            }
+
+            chartInstance.update();
+        }
+
+        function renderThermometer(t1, l1, t2, l2, tx, lx, showAnswer) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Base Thermometer graphics
+            ctx.fillStyle = "#ecf0f1";
+            ctx.fillRect(80, 20, 20, 360); // tube
+            
+            ctx.beginPath();
+            ctx.arc(90, 390, 25, 0, Math.PI * 2); // bulb
+            ctx.fill();
+
+            // Outline
+            ctx.strokeStyle = "#95a5a6";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(80, 20, 20, 360);
+            ctx.beginPath();
+            ctx.arc(90, 390, 25, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Zero mark physical position
+            ctx.fillStyle = "#333";
+            ctx.fillRect(70, 370, 40, 2);
+            ctx.font = "12px Arial";
+            ctx.fillText("0 cm", 35, 374);
+
+            // Scale calculations
+            let maxL = Math.max(l1, l2, showAnswer ? lx : 0, 40);
+            let pxPerCm = 320 / (maxL || 1); // Avoid division by zero
+            let getPos = (cm) => 370 - (cm * pxPerCm);
+
+            let y1 = getPos(l1);
+            let y2 = getPos(l2);
+
+            // If Answer is requested, fill with red liquid up to Lx
+            if (showAnswer) {
+                let yx = getPos(lx);
+                
+                // Draw Liquid
+                ctx.fillStyle = "rgba(231, 76, 60, 0.8)";
+                ctx.beginPath();
+                ctx.arc(90, 390, 21, 0, Math.PI * 2); 
+                ctx.fill();
+                
+                let tubeTop = Math.min(yx, 370);
+                if (yx < 370) {
+                    ctx.fillRect(82, tubeTop, 16, 370 - tubeTop);
+                }
+
+                // Draw Lx Mark
+                ctx.fillStyle = "#c0392b";
+                ctx.fillRect(60, yx, 60, 3);
+                ctx.fillText(`Lₓ=${lx.toFixed(1)}cm`, 5, yx - 8);
+                ctx.fillText(`Tₓ=${tx.toFixed(1)}°C`, 125, yx + 5);
+            }
+
+            // Always Draw L1 Mark
+            ctx.fillStyle = "#2980b9";
+            ctx.fillRect(70, y1, 40, 2);
+            ctx.font = "bold 13px Arial";
+            ctx.fillText(`L₁=${l1}cm`, 20, y1 - 5);
+            ctx.fillText(`T₁=${t1}°C`, 115, y1 + 4);
+
+            // Always Draw L2 Mark
+            ctx.fillStyle = "#2980b9";
+            ctx.fillRect(70, y2, 40, 2);
+            ctx.fillText(`L₂=${l2}cm`, 20, y2 - 5);
+            ctx.fillText(`T₂=${t2}°C`, 115, y2 + 4);
+        }
+
+        window.onload = initSimulation;
+
+        /* ====================================================================== */
+        /*                          QUIZ LOGIC                                    */
+        /* ====================================================================== */
+        
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQuestionIndex = 0;
+
+        // 8 MC Questions for Calibration of Thermometers (S3 Level)
+        const questions = [
+            {
+                question: "Which of the following is commonly used as the lower fixed point on the Celsius scale?",
+                options: ["Temperature of human body", "Melting point of pure ice at 1 atm", "Room temperature", "Boiling point of pure water"],
+                answer: 1
+            },
+            {
+                question: "Which of the following is commonly used as the upper fixed point on the Celsius scale?",
+                options: ["Boiling point of pure water at 1 atm", "Melting point of pure ice", "100 degrees Fahrenheit", "The maximum temperature of a Bunsen burner"],
+                answer: 0
+            },
+            {
+                question: "What physical property changes with temperature in a liquid-in-glass thermometer?",
+                options: ["Mass of the liquid", "Volume of the liquid", "Color of the liquid", "Density of the glass"],
+                answer: 1
+            },
+            {
+                question: "Why is the capillary tube of a thermometer made very narrow?",
+                options: ["To prevent the glass from breaking", "To make it easier to manufacture", "To increase the sensitivity of the thermometer", "To decrease the range of the thermometer"],
+                answer: 2
+            },
+            {
+                question: "Why is the glass bulb of a thermometer made thin?",
+                options: ["To save glass material", "To allow quick heat transfer to the liquid inside", "To prevent the liquid from evaporating", "To make the thermometer lighter"],
+                answer: 1
+            },
+            {
+                question: "Why are mercury and alcohol commonly used in thermometers?",
+                options: ["They do not evaporate", "They expand uniformly with temperature", "They are completely transparent", "They do not conduct heat"],
+                answer: 1
+            },
+            {
+                question: "In a thermometer, the length of the liquid column is 4cm at 0°C and 24cm at 100°C. What is the temperature when the length is 14cm?",
+                options: ["40 °C", "50 °C", "60 °C", "70 °C"],
+                answer: 1
+            },
+            {
+                question: "If a thermometer is placed in a hot liquid, what happens initially before the liquid column rises?",
+                options: ["The glass bulb expands first, causing a slight drop in the liquid level.", "The liquid evaporates immediately.", "The liquid column rises instantly without any delay.", "The glass bulb shrinks due to heat."],
+                answer: 0
+            }
+        ];
+
+        function switchToQuiz() {
+            document.getElementById('simulation-view').classList.add('hidden');
+            document.getElementById('quiz-wrapper').classList.remove('hidden');
+        }
+
+        function switchToSimulation() {
+            document.getElementById('quiz-wrapper').classList.add('hidden');
+            document.getElementById('simulation-view').classList.remove('hidden');
+        }
+
+        function startGame() {
+            const classInput = document.getElementById("class-input").value.trim();
+            const numberInput = document.getElementById("number-input").value.trim();
+
+            if (classInput === "" || numberInput === "") {
+                document.getElementById("error-msg").style.display = "block";
+                return;
+            }
+            document.getElementById("error-msg").style.display = "none";
+
+            S_Class = classInput;
+            S_Number = numberInput;
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+
+            document.getElementById("setup-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questions[currentQuestionIndex];
+            document.getElementById("question-text").innerText = q.question;
+            document.getElementById("question-counter").innerText = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+            
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(index);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIndex) {
+            if (selectedIndex === questions[currentQuestionIndex].answer) {
+                S_Mark++;
+            }
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            document.getElementById("quiz-screen").classList.add("hidden");
+            document.getElementById("result-screen").classList.remove("hidden");
+            document.getElementById("final-score").innerText = S_Mark;
+            
+            document.getElementById("end-buttons").classList.remove("hidden");
+            document.getElementById("submit-feedback").classList.add("hidden");
+        }
+
+        function handleTryAgain() {
+            S_Mark = 0;
+            currentQuestionIndex = 0;
+            document.getElementById("result-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function handleFinishAndSubmit() {
+            submitToGoogleForm();
+            document.getElementById("end-buttons").classList.add("hidden");
+            document.getElementById("submit-feedback").classList.remove("hidden");
+        }
+
+        function submitToGoogleForm() {
+            // Provided Google Form URL for Calibration Quiz
+            const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSdY5LbAbBuN00IYNknaMoy1YshexPJM2AWYzuKcALECyssmtw/formResponse";
+            
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", S_Class);
+            formData.append("entry.777103265", S_Number);
+            formData.append("entry.1173990498", S_Mark);
+
+            fetch(formUrl, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("Submitted successfully to Google Forms.");
+            }).catch((error) => {
+                console.error("Error submitting form:", error);
+            });
+        }
+    </script>
+</body>
+</html>
