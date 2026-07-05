@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光的折射虛擬實驗室 v3.1 (優化數學顯示版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --panel-color: #ffffff;
+            --primary-color: #2c3e50;
+            --accent-color: #e74c3c;
+            --highlight-color: #3498db;
+            --success-color: #2ecc71;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: var(--bg-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            gap: 15px;
+            height: calc(100% - 10px);
+        }
+
+        .panel {
+            background: var(--panel-color);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 版面分配 */
+        .col-control { flex: 1.3; min-width: 260px; overflow-y: auto; }
+        .col-simulation { flex: 3; position: relative; padding: 0; border: 2px solid #333; background: #222; }
+        .col-data { flex: 1.7; display: flex; flex-direction: column; }
+
+        /* 控制項樣式 */
+        .control-group { margin-bottom: 12px; padding: 10px; background: #f8fafc; border-radius: 8px; border-left: 5px solid var(--highlight-color); }
+        label { display: block; margin-bottom: 6px; font-weight: bold; color: var(--primary-color); font-size: 0.9rem; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .val-display { float: right; color: var(--highlight-color); font-weight: bold; }
+
+        /* 計算步驟區塊 (已修改字體與樣式) */
+        .calc-box {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; /* 改回一般字體 */
+            font-size: 0.95rem;
+            color: #333;
+            line-height: 1.8;
+        }
+        .calc-step { 
+            margin-bottom: 5px; 
+            border-bottom: 1px dashed #e0e0e0; 
+            padding-bottom: 4px; 
+        }
+        .calc-step:last-child { 
+            border-bottom: none; 
+            font-weight: bold; 
+            color: #d35400; 
+            font-size: 1.1rem;
+            margin-top: 5px;
+        }
+        /* 強調數字 */
+        .num-highlight { color: #2980b9; font-weight: bold; }
+
+        /* 按鈕樣式 */
+        button {
+            background-color: var(--highlight-color); color: white; border: none; padding: 10px;
+            border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; margin-top: 5px; width: 100%;
+        }
+        button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; transform: none; }
+        .btn-secondary { background-color: #7f8c8d; font-size: 0.8rem; padding: 6px; width: auto; }
+        .btn-quiz { background-color: #9b59b6; margin-top: 10px; }
+        .btn-quiz:hover { background-color: #8e44ad; }
+
+        /* Canvas & Table */
+        canvas { width: 100%; height: 100%; }
+        .table-container { flex: 1; overflow-y: auto; margin-top: 10px; border: 1px solid #eee; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 6px; text-align: center; border-bottom: 1px solid #eee; }
+        th { background: #f1f5f9; position: sticky; top: 0; }
+
+        /* 測驗模態視窗 */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 500px;
+            position: relative; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .quiz-question { font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; color: #2c3e50; text-align: left; }
+        .quiz-options { display: flex; flex-direction: column; gap: 10px; }
+        .quiz-btn {
+            background: white; border: 2px solid #ddd; color: #333; padding: 12px; border-radius: 8px; cursor: pointer;
+            text-align: left; transition: all 0.2s; font-size: 1rem;
+        }
+        .quiz-btn:hover { background: #f8f9fa; border-color: #bbb; }
+        .quiz-btn.correct { background: #d4edda; border-color: #28a745; color: #155724; }
+        .quiz-btn.wrong { background: #f8d7da; border-color: #dc3545; color: #721c24; animation: shake 0.4s; }
+        @keyframes shake {
+            0% { transform: translateX(0); } 25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } 100% { transform: translateX(0); }
+        }
+        .close-btn { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #aaa; }
+        .next-btn { display: none; margin-top: 20px; background: #2ecc71; }
+        #confetti-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        /* 模擬區標籤文字優化 */
+        .sim-label {
+            position: absolute; color: white; font-weight: bold; 
+            text-shadow: 1px 1px 2px black; font-size: 1.1rem;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <div class="panel col-control">
+            <h3 style="margin-top:0">實驗設定</h3>
+            <div class="control-group">
+                <label>介質 1 折射率 (n₁): <span id="disp-n1" class="val-display">1.00</span></label>
+                <input type="range" id="input-n1" min="1.00" max="2.50" step="0.01" value="1.00">
+            </div>
+            <div class="control-group">
+                <label>介質 2 折射率 (n₂): <span id="disp-n2" class="val-display">1.50</span></label>
+                <input type="range" id="input-n2" min="1.00" max="2.50" step="0.01" value="1.50">
+            </div>
+            <div class="control-group">
+                <label>入射角 (i): <span id="disp-angle" class="val-display">30°</span></label>
+                <input type="range" id="input-angle" min="0" max="85" step="1" value="30">
+            </div>
+
+            <h4 style="margin: 15px 0 5px 0; color:var(--primary-color);">📝 計算步驟:</h4>
+            <div id="calc-display" class="calc-box">
+                </div>
+        </div>
+
+        <div class="panel col-simulation">
+            <canvas id="simCanvas"></canvas>
+            <div class="sim-label" style="top: 15px; left: 15px;" id="label-n1">介質 1</div>
+            <div class="sim-label" style="bottom: 15px; left: 15px;" id="label-n2">介質 2</div>
+            <div style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 200px;">
+                <button id="btn-record">記錄數據</button>
+            </div>
+        </div>
+
+        <div class="panel col-data">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin:0">數據分析</h3>
+                <button id="btn-toggle-trend" class="btn-secondary">顯示趨勢線</button>
+            </div>
+            
+            <div style="height: 180px; margin-top: 10px;">
+                <canvas id="chartCanvas"></canvas>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>#</th><th>$i$</th><th>$r$</th><th>$\sin i$</th><th>$\sin r$</th></tr>
+                    </thead>
+                    <tbody id="data-table"></tbody>
+                </table>
+            </div>
+
+            <button id="btn-start-quiz" class="btn-quiz">✍️ 進行折射率小測驗</button>
+        </div>
+    </div>
+
+    <div id="quiz-modal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeQuiz()">&times;</span>
+            <canvas id="confetti-canvas"></canvas>
+            <div style="position:relative; z-index: 20;">
+                <h3 style="color:#666; margin-top:0;">小測驗 <span id="quiz-progress">1/10</span></h3>
+                <div id="quiz-question-text" class="quiz-question">題目載入中...</div>
+                <div id="quiz-options-container" class="quiz-options"></div>
+                <button id="btn-next-question" class="next-btn" onclick="nextQuestion()">下一題 ➜</button>
+                <div id="quiz-feedback" style="margin-top:15px; font-weight:bold; height: 20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === 變數與初始化 ===
+        const inputN1 = document.getElementById('input-n1');
+        const inputN2 = document.getElementById('input-n2');
+        const inputAngle = document.getElementById('input-angle');
+        const calcDisplay = document.getElementById('calc-display');
+        const btnRecord = document.getElementById('btn-record');
+        const simCanvas = document.getElementById('simCanvas');
+        const ctxSim = simCanvas.getContext('2d');
+        let chartInstance;
+        let n1 = 1.00, n2 = 1.50, angleI = 30, angleR = 0, isTIR = false, dataCount = 0, showTrendLine = false;
+
+        // 題目庫
+        const questions = [
+            { q: "光從空氣(n=1.0)進入水中(n=1.33)，光線怎麼偏折？", options: ["偏向法線 (角度變小)", "偏離法線 (角度變大)", "不偏折", "直接反射"], ans: 0 },
+            { q: "Snell's Law (斯涅爾定律) 公式是？", options: ["n₁ × sin(i) = n₂ × sin(r)", "n₁ ÷ sin(i) = n₂ ÷ sin(r)", "n₁ + sin(i) = n₂ + sin(r)", "n₁ × n₂ = sin(i) × sin(r)"], ans: 0 },
+            { q: "入射角為 0 度時，折射角是多少？", options: ["0 度", "45 度", "90 度", "不一定"], ans: 0 },
+            { q: "若 sin(r) 算出來大於 1，代表什麼？", options: ["計算錯誤", "全反射 (光出不去)", "折射角是 90 度", "光速變快"], ans: 1 },
+            { q: "全反射只會發生在光從哪裡到哪裡？", options: ["光密(大n) 到 光疏(小n)", "光疏(小n) 到 光密(大n)", "任何介質", "真空中"], ans: 0 },
+            { q: "折射率 n 越大，代表光在該介質中速度？", options: ["越慢", "越快", "不變", "無關"], ans: 0 },
+            { q: "sin(i) 對 sin(r) 的圖形是一條直線，斜率代表？", options: ["相對折射率", "入射角", "反射角", "介質厚度"], ans: 0 },
+            { q: "若 n₁=1, i=30° (sin30°=0.5)，且 n₂=2，則 sin(r)=？", options: ["0.25", "0.5", "1.0", "0.75"], ans: 0 },
+            { q: "光由水進入玻璃，折射角會比入射角？", options: ["小", "大", "相等", "不一定"], ans: 0 },
+            { q: "鑽石的折射率很高(約2.4)，這導致鑽石容易發生？", options: ["全反射", "繞射", "干涉", "散射"], ans: 0 }
+        ];
+        let currentQIndex = 0;
+
+        function init() {
+            initChart();
+            inputN1.addEventListener('input', update);
+            inputN2.addEventListener('input', update);
+            inputAngle.addEventListener('input', update);
+            btnRecord.addEventListener('click', recordData);
+            document.getElementById('btn-toggle-trend').addEventListener('click', toggleTrendLine);
+            document.getElementById('btn-start-quiz').addEventListener('click', openQuiz);
+            window.addEventListener('resize', drawSimulation);
+            update();
+        }
+
+        // === 核心邏輯 (重點修改：計算顯示) ===
+        function update() {
+            n1 = parseFloat(inputN1.value);
+            n2 = parseFloat(inputN2.value);
+            angleI = parseFloat(inputAngle.value);
+
+            // 1. 更新數值顯示
+            document.getElementById('disp-n1').textContent = n1.toFixed(2);
+            document.getElementById('disp-n2').textContent = n2.toFixed(2);
+            document.getElementById('disp-angle').textContent = angleI + "°";
+            document.getElementById('label-n1').textContent = `介質 1 (n = ${n1.toFixed(2)})`;
+            document.getElementById('label-n2').textContent = `介質 2 (n = ${n2.toFixed(2)})`;
+
+            // 2. 計算邏輯
+            const radI = angleI * Math.PI / 180;
+            const sinI = Math.sin(radI); // sin i
+            const leftSide = n1 * sinI;  // n1 * sin i
+            const sinR_val = leftSide / n2; // sin r
+
+            // 3. 生成一般數學符號的計算過程
+            let stepsHtml = "";
+            
+            // 步驟一：公式
+            stepsHtml += `<div class="calc-step">1. 公式：n₁ × sin(i) = n₂ × sin(r)</div>`;
+            
+            // 步驟二：代入數值
+            stepsHtml += `<div class="calc-step">2. 代入：${n1.toFixed(2)} × sin(${angleI}°) = ${n2.toFixed(2)} × sin(r)</div>`;
+            
+            // 步驟三：查表與移項
+            // 為了讓學生看懂，我們把 n1*sin(i) 先算出來
+            stepsHtml += `<div class="calc-step">3. 計算左邊：${n1.toFixed(2)} × <span class="num-highlight">${sinI.toFixed(3)}</span> = ${leftSide.toFixed(3)}</div>`;
+            stepsHtml += `<div class="calc-step">4. 移項求 sin(r)：${leftSide.toFixed(3)} ÷ ${n2.toFixed(2)} = sin(r)</div>`;
+
+            if (Math.abs(sinR_val) > 1) {
+                // 全反射情況
+                isTIR = true;
+                angleR = null;
+                btnRecord.disabled = true;
+                btnRecord.textContent = "全反射 (無法折射)";
+                
+                stepsHtml += `<div class="calc-step">5. 結果：sin(r) = <span class="num-highlight">${sinR_val.toFixed(3)}</span> (大於 1)</div>`;
+                stepsHtml += `<div class="calc-step" style="color:#c0392b;">❌ 無法計算角度，發生全反射！</div>`;
+            } else {
+                // 正常折射
+                isTIR = false;
+                const radR = Math.asin(sinR_val);
+                angleR = radR * 180 / Math.PI;
+                btnRecord.disabled = false;
+                btnRecord.textContent = "記錄數據";
+
+                stepsHtml += `<div class="calc-step">5. 結果：sin(r) = <span class="num-highlight">${sinR_val.toFixed(3)}</span></div>`;
+                stepsHtml += `<div class="calc-step">6. 反查角度：r = sin⁻¹(${sinR_val.toFixed(3)}) ≈ <span style="font-size:1.2em; color:#d35400;">${angleR.toFixed(1)}°</span></div>`;
+            }
+            calcDisplay.innerHTML = stepsHtml;
+
+            drawSimulation();
+            updateTrendLine();
+        }
+
+        // === 繪圖與其他邏輯 (保持原有優化) ===
+        function drawSimulation() {
+            simCanvas.width = simCanvas.clientWidth;
+            simCanvas.height = simCanvas.clientHeight;
+            const w = simCanvas.width, h = simCanvas.height, cx = w/2, cy = h/2;
+            const ctx = ctxSim;
+            ctx.clearRect(0, 0, w, h);
+
+            // 介質
+            const getColor = (n) => `hsl(210, 50%, ${Math.max(20, 95 - (n-1)*40)}%)`;
+            ctx.fillStyle = getColor(n1); ctx.fillRect(0, 0, w, cy);
+            ctx.fillStyle = getColor(n2); ctx.fillRect(0, cy, w, h/2);
+
+            // 界面
+            ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
+            // 法線
+            ctx.setLineDash([6, 6]); ctx.strokeStyle = "rgba(255,255,255,0.6)";
+            ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke(); ctx.setLineDash([]);
+
+            // 光線路徑
+            const rayLen = Math.min(w, h) * 0.42;
+            const radI = angleI * Math.PI / 180;
+            const startX = cx - Math.sin(radI) * rayLen;
+            const startY = cy - Math.cos(radI) * rayLen;
+
+            ctx.beginPath(); ctx.strokeStyle = "#ff4757"; ctx.lineWidth = 4; ctx.lineCap = "round";
+            ctx.moveTo(startX, startY); ctx.lineTo(cx, cy); ctx.stroke();
+            
+            drawAngle(cx, cy, -Math.PI/2 - radI, -Math.PI/2, `${angleI}°`);
+
+            if (isTIR) {
+                const endX = cx + Math.sin(radI) * rayLen;
+                const endY = cy - Math.cos(radI) * rayLen;
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(endX, endY); ctx.stroke();
+            } else {
+                const radR = angleR * Math.PI / 180;
+                const endX = cx + Math.sin(radR) * rayLen;
+                const endY = cy + Math.cos(radR) * rayLen;
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(endX, endY); ctx.stroke();
+                drawAngle(cx, cy, Math.PI/2 - radR, Math.PI/2, `${angleR.toFixed(1)}°`);
+            }
+        }
+
+        function drawAngle(x, y, start, end, text) {
+            const ctx = ctxSim;
+            const r = 50;
+            ctx.beginPath(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+            ctx.arc(x, y, r, start, end); ctx.stroke();
+            
+            const mid = (start + end) / 2;
+            const tx = x + Math.cos(mid) * (r + 25);
+            const ty = y + Math.sin(mid) * (r + 25);
+            
+            ctx.save();
+            ctx.font = "bold 15px monospace"; ctx.fillStyle = "#fff";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.shadowColor = "rgba(0,0,0,1)"; ctx.shadowBlur = 4;
+            ctx.fillText(text, tx, ty);
+            ctx.restore();
+        }
+
+        // Chart & Data
+        function initChart() {
+            const ctx = document.getElementById('chartCanvas').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        { label: '實驗數據', data: [], backgroundColor: '#e74c3c', pointRadius: 6 },
+                        { label: '理論線', data: [], type: 'line', borderColor: '#3498db', borderDash: [5,5], hidden: true, fill: false, pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { x: { title: {display:true, text:'sin(r)'}, min:0, max:1 }, y: { title: {display:true, text:'sin(i)'}, min:0, max:1 } }
+                }
+            });
+        }
+        
+        function recordData() {
+            if(isTIR) return;
+            dataCount++;
+            const si = Math.sin(angleI*Math.PI/180).toFixed(3);
+            const sr = Math.sin(angleR*Math.PI/180).toFixed(3);
+            chartInstance.data.datasets[0].data.push({x:sr, y:si});
+            chartInstance.update();
+            const row = `<tr><td>${dataCount}</td><td>${angleI}°</td><td>${angleR.toFixed(1)}°</td><td>${si}</td><td>${sr}</td></tr>`;
+            document.getElementById('data-table').insertAdjacentHTML('afterbegin', row);
+        }
+
+        function updateTrendLine() {
+            const slope = n2/n1;
+            let x=1, y=slope; if(y>1){ y=1; x=1/slope; }
+            chartInstance.data.datasets[1].data = [{x:0, y:0}, {x:x, y:y}];
+            if(showTrendLine) chartInstance.update('none');
+        }
+
+        function toggleTrendLine() {
+            showTrendLine = !showTrendLine;
+            chartInstance.data.datasets[1].hidden = !showTrendLine;
+            document.getElementById('btn-toggle-trend').style.backgroundColor = showTrendLine ? "#e67e22" : "#7f8c8d";
+            chartInstance.update();
+        }
+
+        // Quiz Logic
+        const modal = document.getElementById('quiz-modal');
+        const qText = document.getElementById('quiz-question-text');
+        const qOpts = document.getElementById('quiz-options-container');
+        const btnNext = document.getElementById('btn-next-question');
+        const feedback = document.getElementById('quiz-feedback');
+        const qProgress = document.getElementById('quiz-progress');
+
+        function openQuiz() {
+            currentQIndex = 0;
+            questions.sort(() => Math.random() - 0.5);
+            modal.style.display = 'flex';
+            renderQuestion();
+        }
+        function closeQuiz() { modal.style.display = 'none'; }
+
+        function renderQuestion() {
+            const q = questions[currentQIndex];
+            qProgress.textContent = `${currentQIndex + 1} / ${questions.length}`;
+            qText.textContent = q.q;
+            qOpts.innerHTML = '';
+            feedback.textContent = '';
+            btnNext.style.display = 'none';
+
+            const cvs = document.getElementById('confetti-canvas');
+            cvs.getContext('2d').clearRect(0,0,cvs.width, cvs.height);
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'quiz-btn';
+                btn.textContent = opt;
+                btn.onclick = () => checkAnswer(btn, idx, q.ans);
+                qOpts.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(btn, selectedIdx, correctIdx) {
+            const allBtns = qOpts.querySelectorAll('.quiz-btn');
+            if (selectedIdx === correctIdx) {
+                btn.classList.add('correct');
+                feedback.textContent = "🎉 答對了！太棒了！";
+                feedback.style.color = "#27ae60";
+                fireConfetti();
+                btnNext.style.display = 'block';
+                allBtns.forEach(b => b.disabled = true);
+            } else {
+                btn.classList.add('wrong');
+                feedback.textContent = "💪 不對喔，再試試看！";
+                feedback.style.color = "#c0392b";
+                setTimeout(() => { btn.classList.remove('wrong'); feedback.textContent = ""; }, 1500);
+            }
+        }
+
+        function nextQuestion() {
+            if (currentQIndex < questions.length - 1) {
+                currentQIndex++;
+                renderQuestion();
+            } else {
+                qText.textContent = "恭喜！你已完成所有測驗。";
+                qOpts.innerHTML = '<button class="quiz-btn" onclick="closeQuiz()">關閉測驗</button>';
+                btnNext.style.display = 'none';
+                fireConfetti();
+            }
+        }
+
+        function fireConfetti() {
+            const cvs = document.getElementById('confetti-canvas');
+            const ctx = cvs.getContext('2d');
+            cvs.width = cvs.clientWidth; cvs.height = cvs.clientHeight;
+            const particles = [];
+            const colors = ['#f1c40f', '#e74c3c', '#3498db', '#9b59b6', '#2ecc71'];
+            for(let i=0; i<60; i++) particles.push({ x: cvs.width/2, y: cvs.height/2, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10 - 5, color: colors[Math.floor(Math.random()*colors.length)], size: Math.random()*8 + 4, life: 100 });
+            function animate() {
+                ctx.clearRect(0,0,cvs.width, cvs.height);
+                let alive = false;
+                particles.forEach(p => { if(p.life > 0) { alive = true; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); }});
+                if(alive) requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        init();
+    </script>
+</body>
+</html>
