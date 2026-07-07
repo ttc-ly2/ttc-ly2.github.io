@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Velocity Simulation</title>
+    <!-- Include Chart.js for real-time graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- General Styles --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2, h3 { color: #2c3e50; text-align: center; margin-top: 0; margin-bottom: 15px; }
+        .hidden { display: none !important; }
+        
+        button {
+            padding: 12px 15px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-warning { background-color: #f39c12; color: white; }
+        .btn-warning:hover { background-color: #e67e22; }
+        .btn-danger { background-color: #e74c3c; color: white; }
+        .btn-danger:hover { background-color: #c0392b; }
+        .btn-off { background-color: #ecf0f1; color: #7f8c8d; border: 1px solid #bdc3c7; cursor: not-allowed; }
+
+        /* --- 3-Column Simulation Layout --- */
+        #simulation-view {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 280px 1.2fr 1fr;
+            gap: 20px;
+            align-items: stretch;
+            height: 700px;
+        }
+
+        .col {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Left Column (Controls) */
+        .col-left { border-top: 5px solid #3498db; gap: 15px; }
+        
+        .control-box {
+            background: #eef2f3;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dcdde1;
+        }
+        .control-box h4 { margin-top: 0; color: #2980b9; border-bottom: 2px solid #bdc3c7; padding-bottom: 5px; }
+
+        .slider-group { margin-bottom: 15px; }
+        .slider-group label { font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; color:#2c3e50;}
+        .slider-group input[type="range"] { width: 100%; cursor: pointer; }
+        .val-display { color: #d35400; font-weight: bold; float: right;}
+
+        .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: auto;}
+
+        /* Middle Column (FBD) */
+        .col-mid { border-top: 5px solid #e74c3c; align-items: center; position: relative;}
+        canvas#fbd-canvas {
+            background: #ecf0f1;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Right Column (Graphs) */
+        .col-right { border-top: 5px solid #2ecc71; gap: 20px; padding: 15px;}
+        .chart-wrapper {
+            flex: 1;
+            position: relative;
+            min-height: 0; /* Important for flex child canvas scaling */
+        }
+
+        /* --- Quiz View Styles --- */
+        #quiz-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+        .quiz-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+            border-top: 5px solid #f39c12;
+        }
+        .quiz-container input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0 20px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .option-btn {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            text-align: left;
+            font-weight: normal;
+            width: 100%;
+            margin-top: 10px;
+            border: 1px solid #bdc3c7;
+        }
+        .option-btn:hover { background-color: #d5dbdb; }
+        #question-counter {
+            font-weight: bold;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================== -->
+    <!-- 1. SIMULATION VIEW                             -->
+    <!-- ============================================== -->
+    <div id="simulation-view">
+        <h1>Terminal Velocity Simulation</h1>
+
+        <div class="container">
+            
+            <!-- LEFT COLUMN: Controls -->
+            <div class="col col-left">
+                <h3>Parameters</h3>
+
+                <div class="control-box">
+                    <div class="slider-group">
+                        <label>Weight of Diver (W) <span class="val-display"><span id="lbl-weight">500</span> N</span></label>
+                        <input type="range" id="val-weight" min="100" max="1000" step="10" value="500">
+                    </div>
+                    <div class="slider-group">
+                        <label>Parachute Size (A) <span class="val-display"><span id="lbl-area">50</span> m²</span></label>
+                        <input type="range" id="val-area" min="0.1" max="1000" step="0.1" value="50">
+                    </div>
+                </div>
+
+                <div style="font-size: 13px; color: #7f8c8d; line-height: 1.5;">
+                    <b>Instructions:</b><br>
+                    1. Adjust parameters.<br>
+                    2. Click <b>Start</b> to begin free fall.<br>
+                    3. Click <b>Pause</b> to analyze forces.<br>
+                    4. Click <b>Open Parachute</b> to deploy it.<br>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn-primary" id="btn-start" onclick="startSim()">Start Simulation</button>
+                    <button class="btn-off" id="btn-pause" onclick="pauseSim()" disabled>Pause</button>
+                    <button class="btn-off" id="btn-parachute" onclick="openParachute()" disabled>Open Parachute</button>
+                    <button class="btn-danger" id="btn-reset" onclick="resetSim()">Reset Simulation</button>
+                    <button id="btn-quiz" class="btn-warning" style="margin-top: 15px;" onclick="switchToQuiz()">Start a Quiz</button>
+                </div>
+            </div>
+
+            <!-- MIDDLE COLUMN: Free Body Diagram -->
+            <div class="col col-mid">
+                <h3>Free Body Diagram</h3>
+                <canvas id="fbd-canvas"></canvas>
+            </div>
+
+            <!-- RIGHT COLUMN: Graphs -->
+            <div class="col col-right">
+                <div class="chart-wrapper">
+                    <canvas id="v-chart"></canvas>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="a-chart"></canvas>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- 2. QUIZ VIEW                                   -->
+    <!-- ============================================== -->
+    <div id="quiz-wrapper" class="hidden">
+        <div class="quiz-container">
+            
+            <div id="setup-screen">
+                <h2>Physics Quiz (Terminal Velocity)</h2>
+                <p>Welcome to the S3 Physics Quiz.</p>
+                
+                <label for="class-input">Class (e.g., 3A):</label><br>
+                <input type="text" id="class-input" placeholder="Enter your Class"><br>
+                
+                <label for="number-input">Class Number (e.g., 15):</label><br>
+                <input type="text" id="number-input" placeholder="Enter your Class Number"><br>
+                
+                <button class="btn-primary" style="width:100%" onclick="startGame()">Start Game</button>
+                <button class="btn-danger" style="width:100%; margin-top:10px;" onclick="switchToSimulation()">Back to Simulation</button>
+                <p id="error-msg" style="color: red; display: none;">Please enter both Class and Class Number.</p>
+            </div>
+
+            <div id="quiz-screen" class="hidden">
+                <div id="question-counter">Question 1 of 10</div>
+                <h2 id="question-text">Question text goes here</h2>
+                <div id="options-container"></div>
+            </div>
+
+            <div id="result-screen" class="hidden">
+                <h2>Quiz Completed!</h2>
+                <h3>Your Score: <span id="final-score">0</span> / 10</h3>
+                
+                <div id="end-buttons">
+                    <button class="btn-success" style="width:100%" onclick="handleFinishAndSubmit()">Finish and Submit</button>
+                    <button class="btn-primary" style="width:100%; margin-top:10px;" onclick="handleTryAgain()">Try Again</button>
+                </div>
+
+                <div id="post-submit-section" class="hidden">
+                    <p id="submit-feedback" style="color: #27ae60; font-weight: bold; font-size:18px;">Your results have been successfully submitted!</p>
+                    <button class="btn-warning" style="width:100%; margin-top: 15px;" onclick="switchToSimulation()">Leave Quiz</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ====================================================================== */
+        /*                       SIMULATION LOGIC                                 */
+        /* ====================================================================== */
+
+        // UI Elements
+        const sliderW = document.getElementById('val-weight');
+        const sliderA = document.getElementById('val-area');
+        const lblW = document.getElementById('lbl-weight');
+        const lblA = document.getElementById('lbl-area');
+        
+        const btnStart = document.getElementById('btn-start');
+        const btnPause = document.getElementById('btn-pause');
+        const btnParachute = document.getElementById('btn-parachute');
+        
+        const fbdCanvas = document.getElementById('fbd-canvas');
+        const fCtx = fbdCanvas.getContext('2d');
+
+        // Physics Constants & State
+        const g = 9.81; // Gravity m/s^2
+        const rho = 1.2; // Air density kg/m^3
+        const Cd_diver = 1.0; 
+        const Cd_chute = 1.5;
+        const diverBaseArea = 0.5; // m^2 (Surface area of human body)
+
+        let isRunning = false;
+        let isPaused = false;
+        let isChuteOpening = false;
+        let chuteProgress = 0; // 0 to 1 for deployment animation
+
+        let t = 0; // Time (s)
+        let v = 0; // Velocity (m/s)
+        let a = g; // Acceleration (m/s^2)
+        let W = 500; // Weight (N)
+        let m = W / g; // Mass (kg)
+        let currentArea = diverBaseArea; 
+        let targetArea = 50;
+        let F_drag = 0;
+        let F_net = W;
+
+        // Slow motion control
+        const dt = 0.01; // 0.01 seconds of physics per frame (very slow motion)
+        let frameCounter = 0;
+
+        // Graph Instances & Data Arrays
+        let chartV, chartA;
+        let timeLabels = [];
+        let dataV = [];
+        let dataA = [];
+
+        function initSimulation() {
+            // Setup canvas size
+            fbdCanvas.width = fbdCanvas.clientWidth;
+            fbdCanvas.height = fbdCanvas.clientHeight;
+
+            // Setup Sliders
+            sliderW.addEventListener('input', (e) => { lblW.innerText = e.target.value; });
+            sliderA.addEventListener('input', (e) => { lblA.innerText = e.target.value; });
+
+            // Initialize Charts
+            const ctxV = document.getElementById('v-chart').getContext('2d');
+            chartV = new Chart(ctxV, {
+                type: 'line',
+                data: { labels: timeLabels, datasets: [{ label: 'Velocity (m/s)', data: dataV, borderColor: '#8e44ad', fill: true, backgroundColor: 'rgba(142, 68, 173, 0.1)', pointRadius: 0, tension: 0.2 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { title: {display: true, text: 'Time (s)'} }, y: { title: {display: true, text: 'Velocity (m/s)'}, beginAtZero: true } }, animation: false }
+            });
+
+            const ctxA = document.getElementById('a-chart').getContext('2d');
+            chartA = new Chart(ctxA, {
+                type: 'line',
+                data: { labels: timeLabels, datasets: [{ label: 'Acceleration (m/s²)', data: dataA, borderColor: '#e67e22', fill: true, backgroundColor: 'rgba(230, 126, 34, 0.1)', pointRadius: 0, tension: 0.2 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { title: {display: true, text: 'Time (s)'} }, y: { title: {display: true, text: 'Acceleration (m/s²)'} } }, animation: false }
+            });
+
+            drawFBD(); // Draw initial state
+        }
+
+        function startSim() {
+            if (isRunning && !isPaused) return;
+
+            if (!isRunning) {
+                // Initial read
+                W = parseFloat(sliderW.value);
+                m = W / g;
+                targetArea = parseFloat(sliderA.value);
+                isRunning = true;
+                
+                // Lock sliders
+                sliderW.disabled = true;
+                sliderA.disabled = true;
+            }
+
+            isPaused = false;
+
+            // Update buttons
+            btnStart.disabled = true;
+            btnStart.innerText = "Simulation Running";
+            btnStart.classList.replace('btn-primary', 'btn-off');
+            
+            btnPause.disabled = false;
+            btnPause.classList.replace('btn-off', 'btn-warning');
+            
+            if (!isChuteOpening && currentArea <= diverBaseArea + 0.1) {
+                btnParachute.disabled = false;
+                btnParachute.classList.replace('btn-off', 'btn-success');
+            }
+
+            requestAnimationFrame(simLoop);
+        }
+
+        function pauseSim() {
+            if (!isRunning || isPaused) return;
+            isPaused = true;
+
+            // Update buttons
+            btnStart.disabled = false;
+            btnStart.innerText = "Resume Simulation";
+            btnStart.classList.replace('btn-off', 'btn-primary');
+            
+            btnPause.disabled = true;
+            btnPause.classList.replace('btn-warning', 'btn-off');
+        }
+
+        function openParachute() {
+            if(!isRunning || isChuteOpening || currentArea > diverBaseArea + 0.1) return;
+            isChuteOpening = true;
+            
+            // Disable button
+            btnParachute.disabled = true;
+            btnParachute.classList.replace('btn-success', 'btn-off');
+        }
+
+        function resetSim() {
+            isRunning = false;
+            isPaused = false;
+            isChuteOpening = false;
+            chuteProgress = 0;
+
+            t = 0;
+            v = 0;
+            W = parseFloat(sliderW.value);
+            m = W / g;
+            a = g;
+            currentArea = diverBaseArea;
+            F_drag = 0;
+            F_net = W;
+
+            // Unlock sliders
+            sliderW.disabled = false;
+            sliderA.disabled = false;
+
+            // Reset buttons
+            btnStart.disabled = false;
+            btnStart.innerText = "Start Simulation";
+            btnStart.classList.replace('btn-off', 'btn-primary');
+            
+            btnPause.disabled = true;
+            btnPause.classList.replace('btn-warning', 'btn-off');
+            
+            btnParachute.disabled = true;
+            btnParachute.classList.replace('btn-success', 'btn-off');
+
+            // Reset charts
+            timeLabels.length = 0;
+            dataV.length = 0;
+            dataA.length = 0;
+            chartV.update();
+            chartA.update();
+
+            drawFBD();
+        }
+
+        function simLoop() {
+            if (!isRunning || isPaused) return;
+
+            // Parachute deployment logic (takes 1.5 simulated seconds to fully open)
+            if (isChuteOpening) {
+                chuteProgress += dt / 1.5; 
+                if (chuteProgress >= 1.0) {
+                    chuteProgress = 1.0;
+                    isChuteOpening = false;
+                }
+                // Linearly interpolate area
+                currentArea = diverBaseArea + (targetArea - diverBaseArea) * chuteProgress;
+            }
+
+            // Physics Calculation
+            let Cd = (currentArea > diverBaseArea * 2) ? Cd_chute : Cd_diver; 
+            
+            // F_drag = 0.5 * rho * Cd * A * v^2
+            F_drag = 0.5 * rho * Cd * currentArea * v * v;
+            
+            // F_net = W - F_drag
+            F_net = W - F_drag;
+            
+            // a = F_net / m
+            a = F_net / m;
+            
+            // v = v + a*dt
+            v += a * dt;
+            
+            t += dt;
+
+            // Update graphs every 10 frames to avoid lag
+            frameCounter++;
+            if (frameCounter >= 10) {
+                timeLabels.push(t.toFixed(1));
+                dataV.push(v);
+                dataA.push(a);
+                chartV.update();
+                chartA.update();
+                frameCounter = 0;
+            }
+
+            drawFBD();
+
+            requestAnimationFrame(simLoop);
+        }
+
+        // --- Custom Drawing Function for Vector Arrows with Values ---
+        function drawArrow(ctx, x1, y1, x2, y2, color, labelText, align = "left") {
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 4;
+            
+            // Line
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Arrowhead
+            let angle = Math.atan2(y2 - y1, x2 - x1);
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - 12 * Math.cos(angle - Math.PI/6), y2 - 12 * Math.sin(angle - Math.PI/6));
+            ctx.lineTo(x2 - 12 * Math.cos(angle + Math.PI/6), y2 - 12 * Math.sin(angle + Math.PI/6));
+            ctx.closePath();
+            ctx.fill();
+
+            // Label
+            ctx.font = "bold 15px Arial";
+            ctx.textAlign = align;
+            ctx.textBaseline = "middle";
+            
+            // Place text to the left or right of the arrowhead tip
+            if (align === "left") {
+                ctx.fillText(labelText, x2 + 10, y2);
+            } else {
+                ctx.fillText(labelText, x2 - 10, y2);
+            }
+        }
+
+        function drawFBD() {
+            fCtx.clearRect(0, 0, fbdCanvas.width, fbdCanvas.height);
+            
+            const cw = fbdCanvas.width;
+            const ch = fbdCanvas.height;
+            const cx = cw / 2;
+            const cy = ch / 2;
+
+            // 1. Draw Data Box (Top Left)
+            fCtx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            fCtx.fillRect(10, 10, 220, 150);
+            fCtx.strokeStyle = "#bdc3c7";
+            fCtx.strokeRect(10, 10, 220, 150);
+            
+            fCtx.fillStyle = "#2c3e50";
+            fCtx.textAlign = "left";
+            fCtx.textBaseline = "alphabetic";
+            fCtx.font = "14px Consolas, monospace";
+            fCtx.fillText(`Time (t)      = ${t.toFixed(1)} s`, 20, 35);
+            fCtx.fillStyle = "#8e44ad"; // Purple Velocity
+            fCtx.fillText(`Velocity (v)  = ${v.toFixed(2)} m/s`, 20, 55);
+            fCtx.fillStyle = "#2c3e50"; 
+            fCtx.fillText(`Accel. (a)    = ${a.toFixed(2)} m/s²`, 20, 75);
+            fCtx.fillStyle = "#c0392b"; // Red Weight
+            fCtx.fillText(`Weight (W)    = ${W.toFixed(0)} N`, 20, 105);
+            fCtx.fillStyle = "#2980b9"; // Blue Drag
+            fCtx.fillText(`Air Fric (Fd) = ${F_drag.toFixed(0)} N`, 20, 125);
+            fCtx.fillStyle = "#27ae60"; // Green Net
+            fCtx.fillText(`Net Force (F) = ${Math.abs(F_net).toFixed(0)} N`, 20, 145);
+
+            // 2. Draw Diver (Human Shape at center)
+            fCtx.strokeStyle = "#34495e";
+            fCtx.fillStyle = "#34495e";
+            fCtx.lineWidth = 4;
+            fCtx.lineCap = "round";
+            
+            // Head
+            fCtx.beginPath();
+            fCtx.arc(cx, cy - 15, 6, 0, Math.PI * 2);
+            fCtx.fill();
+            
+            // Torso
+            fCtx.beginPath();
+            fCtx.moveTo(cx, cy - 9);
+            fCtx.lineTo(cx, cy + 10);
+            fCtx.stroke();
+            
+            // Arms (raised up like skydiving)
+            fCtx.beginPath();
+            fCtx.moveTo(cx, cy - 5);
+            fCtx.lineTo(cx - 12, cy - 15);
+            fCtx.moveTo(cx, cy - 5);
+            fCtx.lineTo(cx + 12, cy - 15);
+            fCtx.stroke();
+            
+            // Legs (spread apart)
+            fCtx.beginPath();
+            fCtx.moveTo(cx, cy + 10);
+            fCtx.lineTo(cx - 10, cy + 25);
+            fCtx.moveTo(cx, cy + 10);
+            fCtx.lineTo(cx + 10, cy + 25);
+            fCtx.stroke();
+            
+            // Draw Parachute if opening/opened
+            if (currentArea > diverBaseArea) {
+                let pScale = Math.min(Math.sqrt(currentArea) * 5, cw/2 - 50); // visual cap
+                fCtx.fillStyle = "rgba(230, 126, 34, 0.8)";
+                fCtx.beginPath();
+                fCtx.arc(cx, cy - 40, pScale, Math.PI, 0); // semi-circle
+                fCtx.fill();
+                
+                // Strings (attach to arms)
+                fCtx.strokeStyle = "#333";
+                fCtx.lineWidth = 1.5;
+                fCtx.beginPath();
+                fCtx.moveTo(cx - 12, cy - 15); fCtx.lineTo(cx - pScale, cy - 40);
+                fCtx.moveTo(cx + 12, cy - 15); fCtx.lineTo(cx + pScale, cy - 40);
+                fCtx.stroke();
+            }
+
+            // 3. Draw Force Vectors
+            // Visual Force scale: 1000 N = 100 pixels
+            let visualScale = 0.1;
+            
+            // Weight (Red, Down from Feet)
+            let visW = W * visualScale;
+            drawArrow(fCtx, cx, cy + 30, cx, cy + 30 + visW, "#c0392b", `W = ${W.toFixed(0)} N`, "left");
+
+            // Drag (Blue, Up from Head/Chute)
+            let visFd = Math.min(F_drag * visualScale, ch/2 - 20); // Cap visual size
+            let dragStartY = (currentArea > diverBaseArea) ? cy - 45 : cy - 25; 
+            if (visFd > 2) {
+                drawArrow(fCtx, cx, dragStartY, cx, dragStartY - visFd, "#2980b9", `Fd = ${F_drag.toFixed(0)} N`, "left");
+            }
+
+            // Net Force (Green, Right side)
+            let visFnet = Math.min(Math.abs(F_net) * visualScale, ch/2 - 20);
+            if (visFnet > 2) {
+                let dir = (F_net >= 0) ? 1 : -1; // 1 is down, -1 is up
+                drawArrow(fCtx, cx + 55, cy, cx + 55, cy + (visFnet * dir), "#27ae60", `Fnet = ${Math.abs(F_net).toFixed(0)} N`, "left");
+            }
+
+            // Velocity Vector (Purple, Left side, Down)
+            // Visual Velocity Scale: 50 m/s = 100 pixels (Scale = 2.0)
+            let visV = Math.min(v * 2.0, ch/2 - 20);
+            if (visV > 1) {
+                drawArrow(fCtx, cx - 55, cy, cx - 55, cy + visV, "#8e44ad", `v = ${v.toFixed(1)} m/s`, "right");
+            }
+        }
+
+        window.onload = initSimulation;
+
+        /* ====================================================================== */
+        /*                          QUIZ LOGIC                                    */
+        /* ====================================================================== */
+        
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQuizIndex = 0;
+
+        // 10 MC Questions regarding Terminal Velocity / Forces
+        const questions = [
+            {
+                question: "What is the main downward force acting on a falling skydiver?",
+                options: ["Weight (Gravity)", "Air Resistance", "Upthrust", "Normal Reaction"],
+                answer: 0
+            },
+            {
+                question: "As the skydiver's velocity increases during free fall, what happens to the air friction (air resistance)?",
+                options: ["It increases", "It decreases", "It remains constant", "It drops to zero"],
+                answer: 0
+            },
+            {
+                question: "Terminal velocity is reached when:",
+                options: ["Air resistance equals the weight of the diver", "Air resistance becomes zero", "The diver hits the ground", "The parachute is opened"],
+                answer: 0
+            },
+            {
+                question: "What is the net force acting on a skydiver falling perfectly at terminal velocity?",
+                options: ["0 N", "Equals the diver's weight", "9.81 N", "Equals the air resistance plus weight"],
+                answer: 0
+            },
+            {
+                question: "What is the acceleration of a skydiver when they are exactly at terminal velocity?",
+                options: ["0 m/s²", "9.81 m/s²", "-9.81 m/s²", "It constantly increases"],
+                answer: 0
+            },
+            {
+                question: "When a skydiver opens their parachute, what happens to the air friction immediately?",
+                options: ["It increases greatly due to the larger surface area", "It decreases because the parachute is light", "It stays the same", "It pulls the diver upwards physically"],
+                answer: 0
+            },
+            {
+                question: "Immediately after the parachute opens, the net force acts upwards. What does this mean for the skydiver's motion?",
+                options: ["The skydiver decelerates (slows down)", "The skydiver flies upward into the sky", "The skydiver stops instantly in mid-air", "The skydiver continues at the same speed"],
+                answer: 0
+            },
+            {
+                question: "After opening the parachute, the skydiver's velocity eventually:",
+                options: ["Settles at a new, much lower terminal velocity", "Reaches 0 m/s before hitting the ground", "Increases again to the original speed", "Starts oscillating up and down"],
+                answer: 0
+            },
+            {
+                question: "If a skydiver weighs 600 N and is accelerating downwards, which statement is true?",
+                options: ["Air resistance is less than 600 N", "Air resistance is greater than 600 N", "Air resistance is exactly 600 N", "There is no air resistance"],
+                answer: 0
+            },
+            {
+                question: "Which formula correctly represents the Net Force (F) acting on a falling diver (defining downwards as positive)?",
+                options: ["F = Weight - Air Friction", "F = Weight + Air Friction", "F = Mass × Velocity", "F = Air Friction / Weight"],
+                answer: 0
+            }
+        ];
+
+        function switchToQuiz() {
+            document.getElementById('simulation-view').classList.add('hidden');
+            document.getElementById('quiz-wrapper').classList.remove('hidden');
+        }
+
+        function switchToSimulation() {
+            document.getElementById('quiz-wrapper').classList.add('hidden');
+            document.getElementById('simulation-view').classList.remove('hidden');
+        }
+
+        function startGame() {
+            const classInput = document.getElementById("class-input").value.trim();
+            const numberInput = document.getElementById("number-input").value.trim();
+
+            if (classInput === "" || numberInput === "") {
+                document.getElementById("error-msg").style.display = "block";
+                return;
+            }
+            document.getElementById("error-msg").style.display = "none";
+
+            S_Class = classInput;
+            S_Number = numberInput;
+            S_Mark = 0;
+            currentQuizIndex = 0;
+
+            document.getElementById("setup-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questions[currentQuizIndex];
+            document.getElementById("question-text").innerText = q.question;
+            document.getElementById("question-counter").innerText = `Question ${currentQuizIndex + 1} of ${questions.length}`;
+            
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+
+            let opts = q.options.map((opt, i) => ({text: opt, isCorrect: i === q.answer}));
+            opts.sort(() => Math.random() - 0.5); // Shuffle
+
+            opts.forEach((opt) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt.text;
+                btn.onclick = () => checkAnswer(opt.isCorrect);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(isCorrect) {
+            if (isCorrect) S_Mark++;
+            
+            currentQuizIndex++;
+            if (currentQuizIndex < questions.length) {
+                loadQuestion();
+            } else {
+                endQuiz();
+            }
+        }
+
+        function endQuiz() {
+            document.getElementById("quiz-screen").classList.add("hidden");
+            document.getElementById("result-screen").classList.remove("hidden");
+            document.getElementById("final-score").innerText = S_Mark;
+            
+            document.getElementById("end-buttons").classList.remove("hidden");
+            document.getElementById("post-submit-section").classList.add("hidden");
+        }
+        
+        function handleTryAgain() {
+            S_Mark = 0;
+            currentQuizIndex = 0;
+            document.getElementById("result-screen").classList.add("hidden");
+            document.getElementById("quiz-screen").classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function handleFinishAndSubmit() {
+            submitToGoogleForm();
+            
+            document.getElementById("end-buttons").classList.add("hidden");
+            document.getElementById("post-submit-section").classList.remove("hidden");
+
+            // Lock out the start quiz button on the main screen
+            const startQuizBtn = document.getElementById("btn-quiz");
+            if (startQuizBtn) {
+                startQuizBtn.disabled = true;
+                startQuizBtn.innerText = "Quiz Completed";
+                startQuizBtn.classList.remove("btn-warning");
+                startQuizBtn.classList.add("btn-off");
+                startQuizBtn.style.cursor = "not-allowed";
+            }
+        }
+
+        function submitToGoogleForm() {
+            // Provided Google Form URL for Terminal Velocity Quiz
+            const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSdZrh7TSop25YuGbvgqRd9W9qZlkSwhNK7OqzBwaSy9f1EP5w/formResponse";
+            
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", S_Class);
+            formData.append("entry.777103265", S_Number);
+            formData.append("entry.1173990498", S_Mark);
+
+            fetch(formUrl, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("Submitted successfully to Google Forms.");
+            }).catch((error) => {
+                console.error("Error submitting form:", error);
+            });
+        }
+    </script>
+</body>
+</html>
