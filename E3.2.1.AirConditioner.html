@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air-Conditioner Refrigerant Simulation</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --primary: #2980b9;
+            --secondary: #27ae60;
+            --danger: #e74c3c;
+            --text-color: #2c3e50;
+            --inside-bg: #e0f7fa;
+            --outside-bg: #ffe0b2;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-color);
+            display: flex;
+            gap: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* Layout Columns */
+        .left-column {
+            flex: 1;
+            min-width: 400px;
+            max-width: 450px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .right-column {
+            flex: 2;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            position: relative;
+        }
+
+        h2 { margin-top: 0; color: var(--primary); border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
+
+        /* Sliders */
+        .slider-group {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.95rem;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Inputs & Calculations */
+        .calc-panel {
+            background: #eef2f5;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+        }
+        .calc-info {
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 15px;
+        }
+        .input-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .input-row label { font-weight: bold; width: 40%; }
+        .input-row input {
+            width: 50%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+            text-align: center;
+            background: #fff;
+        }
+        
+        #calc-steps {
+            display: none;
+            background: #dff9fb;
+            border-left: 4px solid var(--primary);
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: auto;
+        }
+        button {
+            padding: 12px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+            transition: 0.2s;
+        }
+        #btn-calc { background-color: var(--secondary); }
+        #btn-calc:hover { background-color: #219653; }
+        #btn-reset { background-color: var(--danger); }
+        #btn-reset:hover { background-color: #c0392b; }
+        #btn-quiz { background-color: var(--primary); }
+        #btn-quiz:hover { background-color: #1a5276; }
+
+        /* Canvas Area */
+        #sim-canvas {
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            max-width: 100%;
+            background: white;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        /* Quiz Modal Overlay */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: white; padding: 30px; border-radius: 10px;
+            width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: left;
+        }
+        .quiz-section { display: none; }
+        .quiz-section.active { display: block; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-weight: bold; margin-bottom: 5px;}
+        .input-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;}
+        .options label {
+            display: block; margin-bottom: 10px; padding: 10px;
+            background: #f1f5f9; border-radius: 5px; cursor: pointer; transition: 0.2s;
+        }
+        .options label:hover { background: #e2e8f0; }
+        .modal-btns { display: flex; justify-content: space-between; margin-top: 25px; }
+        .btn-modal-cancel { background: #95a5a6; }
+        .btn-modal-next { background: var(--primary); }
+        .btn-modal-submit { background: var(--secondary); }
+
+    </style>
+</head>
+<body>
+
+    <!-- Left Column (Controls) -->
+    <div class="left-column">
+        <h2>AC Controls</h2>
+        
+        <!-- Sliders -->
+        <div class="slider-group">
+            <div class="slider-label"><span>Outer Temp (T_out)</span><span id="val-tout">30 °C</span></div>
+            <input type="range" id="slide-tout" min="25" max="50" step="1" value="30">
+        </div>
+        <div class="slider-group">
+            <div class="slider-label"><span>Inner Temp (T_in)</span><span id="val-tin">25 °C</span></div>
+            <input type="range" id="slide-tin" min="18" max="30" step="1" value="25">
+        </div>
+        <div class="slider-group">
+            <div class="slider-label"><span>Room Volume (V)</span><span id="val-vol">18 m³</span></div>
+            <input type="range" id="slide-vol" min="10" max="30" step="1" value="18">
+        </div>
+        <div class="slider-group">
+            <div class="slider-label"><span>AC Power (P)</span><span id="val-power">1000 W</span></div>
+            <input type="range" id="slide-power" min="500" max="3000" step="50" value="1000">
+        </div>
+
+        <!-- Calculations -->
+        <div class="calc-panel">
+            <div class="calc-info">
+                <strong>Physics Data:</strong><br>
+                Density of Air = 1.225 kg/m³<br>
+                Specific Heat of Air = 1005 J/(kg·°C)<br>
+                <em>Total Heat to Remove (Q): <span id="val-heat" style="color:var(--danger); font-weight:bold;">0</span> J</em>
+            </div>
+            
+            <p style="font-size: 0.85rem; color: var(--primary); font-weight: bold; margin-top:0;">
+                Type into either box. The other will calculate automatically.
+            </p>
+
+            <div class="input-row">
+                <label>Time (Seconds):</label>
+                <input type="number" id="input-time" placeholder="e.g. 1800">
+            </div>
+            <div class="input-row">
+                <label>COP:</label>
+                <input type="number" id="input-cop" placeholder="e.g. 3.5" step="0.1">
+            </div>
+        </div>
+
+        <!-- Steps container -->
+        <div id="calc-steps"></div>
+
+        <div class="btn-group">
+            <button id="btn-calc">Show Calculation Steps</button>
+            <button id="btn-reset">Reset Values</button>
+            <button id="btn-quiz">Start a Quiz</button>
+        </div>
+    </div>
+
+    <!-- Right Column (Simulation) -->
+    <div class="right-column">
+        <h2>Refrigerant State Simulation</h2>
+        <canvas id="sim-canvas" width="650" height="480"></canvas>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div class="modal-overlay" id="quiz-modal">
+        <div class="modal-content">
+            <!-- Start Screen -->
+            <div id="quiz-start" class="quiz-section active">
+                <h2 style="color: var(--primary); margin-top:0;">HKDSE Physics - Heat & AC Quiz</h2>
+                <div class="input-group">
+                    <label>Class (e.g., 5A):</label>
+                    <input type="text" id="s_class" placeholder="Enter Class">
+                </div>
+                <div class="input-group">
+                    <label>Class Number:</label>
+                    <input type="number" id="s_number" placeholder="Enter Number">
+                </div>
+                <div class="modal-btns">
+                    <button class="btn-modal-cancel" onclick="closeQuiz()">Cancel</button>
+                    <button class="btn-modal-next" onclick="startQuiz()">Begin Quiz</button>
+                </div>
+            </div>
+
+            <!-- Q&A Screen -->
+            <div id="quiz-qa" class="quiz-section">
+                <h2 style="color: var(--primary); margin-top:0;" id="q-header">Question 1/10</h2>
+                <h3 id="q-text">Question text?</h3>
+                <div class="options" id="q-options"></div>
+                <div class="modal-btns">
+                    <button class="btn-modal-cancel" onclick="closeQuiz()">Quit</button>
+                    <button class="btn-modal-next" id="btn-next" onclick="nextQuestion()">Next</button>
+                </div>
+            </div>
+
+            <!-- Result Screen -->
+            <div id="quiz-result" class="quiz-section" style="text-align: center;">
+                <h2 style="color: var(--primary); margin-top:0;">Quiz Finished!</h2>
+                <p>Your Score:</p>
+                <div id="final-score" style="font-size: 3rem; color: var(--primary); font-weight: bold; margin: 20px 0;">0 / 10</div>
+                <div class="modal-btns" style="justify-content: center; gap: 20px;">
+                    <button class="btn-modal-cancel" onclick="retryQuiz()">Retry Quiz</button>
+                    <button class="btn-modal-submit" onclick="submitQuizData()">Finish & Send Mark</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Form for Google Submission -->
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted){ quizSubmitted(); }"></iframe>
+    <form action="https://docs.google.com/forms/d/e/1FAIpQLSe4gx-5t5tVJg57ma8TJLZrJFEW_LLyW0dk9Px1PF9ds-qtEw/formResponse" method="POST" target="hidden_iframe" id="gform" style="display: none;">
+        <input type="hidden" name="entry.753594098" id="form_class">
+        <input type="hidden" name="entry.777103265" id="form_number">
+        <input type="hidden" name="entry.1173990498" id="form_mark">
+    </form>
+
+
+    <script>
+        /* -----------------------------------------------------------
+           1. SIMULATION CONTROLS & AUTO MATH
+        ----------------------------------------------------------- */
+        const sTout = document.getElementById('slide-tout'); const vTout = document.getElementById('val-tout');
+        const sTin = document.getElementById('slide-tin'); const vTin = document.getElementById('val-tin');
+        const sVol = document.getElementById('slide-vol'); const vVol = document.getElementById('val-vol');
+        const sPow = document.getElementById('slide-power'); const vPow = document.getElementById('val-power');
+        
+        const inTime = document.getElementById('input-time');
+        const inCOP = document.getElementById('input-cop');
+        const valHeat = document.getElementById('val-heat');
+        const stepsContainer = document.getElementById('calc-steps');
+
+        let Tout = 30, Tin = 25, Vol = 18, Power = 1000;
+        let Q_total = 0;
+        let lastEdited = 'time'; // tracks which box the user changed manually
+
+        function updateValues() {
+            Tout = parseFloat(sTout.value); vTout.innerText = `${Tout} °C`;
+            Tin = parseFloat(sTin.value); vTin.innerText = `${Tin} °C`;
+            Vol = parseFloat(sVol.value); vVol.innerText = `${Vol} m³`;
+            Power = parseFloat(sPow.value); vPow.innerText = `${Power} W`;
+
+            let dT = Math.max(0, Tout - Tin); 
+            Q_total = Vol * 1.225 * 1005 * dT;
+            valHeat.innerText = Q_total.toLocaleString(undefined, {maximumFractionDigits: 0});
+            
+            stepsContainer.style.display = 'none'; // hide steps on new slider input
+            autoCalculate();
+        }
+
+        function autoCalculate() {
+            if (Q_total <= 0) {
+                inTime.value = ""; inCOP.value = ""; return;
+            }
+            if (lastEdited === 'time') {
+                let tStr = inTime.value;
+                if (tStr === "") { inCOP.value = ""; return; }
+                let t = parseFloat(tStr);
+                if (!isNaN(t) && t > 0) inCOP.value = (Q_total / (Power * t)).toFixed(2);
+            } else {
+                let cStr = inCOP.value;
+                if (cStr === "") { inTime.value = ""; return; }
+                let cop = parseFloat(cStr);
+                if (!isNaN(cop) && cop > 0) inTime.value = (Q_total / (Power * cop)).toFixed(1);
+            }
+            stepsContainer.style.display = 'none';
+        }
+
+        [sTout, sTin, sVol, sPow].forEach(el => el.addEventListener('input', updateValues));
+        
+        inTime.addEventListener('input', () => { lastEdited = 'time'; autoCalculate(); });
+        inCOP.addEventListener('input', () => { lastEdited = 'cop'; autoCalculate(); });
+
+        updateValues(); // Init
+
+        // Show Steps Logic
+        document.getElementById('btn-calc').addEventListener('click', () => {
+            if (Q_total <= 0) {
+                alert("Temperature difference is 0 or negative. No cooling required.");
+                return;
+            }
+
+            let t = parseFloat(inTime.value);
+            let cop = parseFloat(inCOP.value);
+            if(isNaN(t) || isNaN(cop) || t <= 0 || cop <= 0) {
+                alert("Please ensure Time and COP have valid positive values first.");
+                return;
+            }
+
+            stepsContainer.style.display = 'block';
+            let m = Vol * 1.225;
+            let dT = Math.max(0, Tout - Tin);
+            
+            let html = `<div style="font-weight:bold; color:var(--primary); margin-bottom:5px;">Calculation Steps:</div>`;
+            html += `1. Mass (m) = Vol × Density = ${Vol} × 1.225 = ${m.toFixed(2)} kg<br>`;
+            html += `2. ΔT = T_out - T_in = ${Tout} - ${Tin} = ${dT} °C<br>`;
+            html += `3. Total Heat (Q) = m × c × ΔT<br>`;
+            html += `&nbsp;&nbsp; Q = ${m.toFixed(2)} × 1005 × ${dT} = ${Q_total.toLocaleString(undefined, {maximumFractionDigits:0})} J<br><br>`;
+            
+            if (lastEdited === 'time') {
+                html += `4. Power (P) = ${Power}W, Time (t) = ${t}s<br>`;
+                html += `&nbsp;&nbsp; COP = Q / (P × t)<br>`;
+                html += `&nbsp;&nbsp; COP = ${Q_total.toLocaleString(undefined, {maximumFractionDigits:0})} / (${Power} × ${t})<br>`;
+                html += `&nbsp;&nbsp; <b>COP = ${cop.toFixed(2)}</b>`;
+            } else {
+                html += `4. Power (P) = ${Power}W, COP = ${cop}<br>`;
+                html += `&nbsp;&nbsp; Time (t) = Q / (P × COP)<br>`;
+                html += `&nbsp;&nbsp; t = ${Q_total.toLocaleString(undefined, {maximumFractionDigits:0})} / (${Power} × ${cop})<br>`;
+                html += `&nbsp;&nbsp; <b>Time = ${t.toFixed(1)} s</b>`;
+            }
+            stepsContainer.innerHTML = html;
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            sTout.value = 30; sTin.value = 25; sVol.value = 18; sPow.value = 1000;
+            inTime.value = ''; inCOP.value = '';
+            lastEdited = 'time';
+            updateValues();
+        });
+
+
+        /* -----------------------------------------------------------
+           2. CANVAS ANIMATION
+        ----------------------------------------------------------- */
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width;
+        const H = canvas.height;
+
+        const margin = 80;
+        const pL = margin; const pR = W - margin;
+        const pT = margin + 20; const pB = H - margin;
+
+        let particles = [];
+        for(let i=0; i<40; i++) {
+            particles.push({ progress: i / 40 });
+        }
+
+        // Helper label drawing with clean background rectangles
+        function drawStateLabel(text, x, y, align="center") {
+            ctx.font = "bold 13px Arial";
+            ctx.textAlign = align;
+            let w = ctx.measureText(text).width + 12;
+            
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            if(align === "center") {
+                ctx.fillRect(x - w/2, y - 13, w, 20);
+                ctx.fillStyle = "#2c3e50";
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // Helper Arrow Draw
+        function drawArrow(ctx, fromX, fromY, toX, toY, color) {
+            let headlen = 12; let dx = toX - fromX; let dy = toY - fromY;
+            let angle = Math.atan2(dy, dx);
+            ctx.strokeStyle = color; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
+
+        function drawCycle() {
+            ctx.clearRect(0, 0, W, H);
+
+            // Background Zones
+            ctx.fillStyle = "var(--inside-bg)"; ctx.fillRect(0, 0, W/2, H);
+            ctx.fillStyle = "var(--outside-bg)"; ctx.fillRect(W/2, 0, W/2, H);
+
+            // DRAW WALL in the center
+            let wallW = 34;
+            let wallX = W/2 - wallW/2;
+            ctx.fillStyle = "#bdc3c7";
+            ctx.fillRect(wallX, 0, wallW, H);
+            
+            ctx.strokeStyle = "#95a5a6";
+            ctx.lineWidth = 2;
+            // Draw brick lines on wall
+            for(let wy = 10; wy < H; wy += 25) {
+                ctx.beginPath();
+                ctx.moveTo(wallX, wy);
+                ctx.lineTo(wallX + wallW, wy);
+                ctx.stroke();
+            }
+
+            // Zone Title Labels
+            ctx.font = "bold 22px Arial"; ctx.textAlign = "center";
+            ctx.fillStyle = "#2c3e50"; ctx.fillText("Inside Room", W/4, 40);
+            ctx.fillStyle = "#e67e22"; ctx.fillText("Outside", 3*W/4, 40);
+
+            // Draw Pipes (Passes through wall)
+            ctx.strokeStyle = "#7f8c8d"; ctx.lineWidth = 14; ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.rect(pL, pT, pR - pL, pB - pT);
+            ctx.stroke();
+
+            // Draw Components Positioned Clear of Wall
+            let valveX = W/2 - 60; // Valve is inside
+            let compX = W/2 + 60;  // Compressor is outside
+
+            // 1. Expansion Valve (Top)
+            ctx.fillStyle = "#8e44ad"; ctx.fillRect(valveX - 25, pT - 20, 50, 40);
+            ctx.fillStyle = "white"; ctx.font = "bold 12px Arial"; ctx.fillText("Valve", valveX, pT + 4);
+
+            // 2. Compressor (Bottom)
+            ctx.fillStyle = "#34495e"; ctx.beginPath(); ctx.arc(compX, pB, 30, 0, 2*Math.PI); ctx.fill();
+            ctx.fillStyle = "white"; ctx.fillText("Comp", compX, pB + 4);
+
+            // Heat Arrows & Labels
+            // Inside (Heat goes from Room Air to Evaporator)
+            drawArrow(ctx, 220, H/2 - 10, pL + 20, H/2 - 10, "#e74c3c");
+            ctx.fillStyle = "#e74c3c"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
+            ctx.fillText("Heat Absorbed from Room", 170, H/2 - 25);
+            
+            // Outside (Heat goes from Condenser to Outside Air)
+            drawArrow(ctx, pR - 20, H/2 - 10, pR - 120, H/2 - 10, "#c0392b");
+            ctx.fillStyle = "#c0392b"; ctx.textAlign = "center";
+            ctx.fillText("Heat Released to Outside", pR - 70, H/2 - 25);
+
+            // Draw & Update Particles (Slowed to 0.001)
+            particles.forEach(p => {
+                p.progress += 0.001;
+                if(p.progress > 1) p.progress -= 1;
+
+                let x, y, color;
+
+                if (p.progress < 0.25) { 
+                    x = pR - (p.progress / 0.25) * (pR - pL); y = pT;
+                    color = x > valveX ? "#2980b9" : "#74b9ff";
+                } 
+                else if (p.progress < 0.50) { 
+                    x = pL; y = pT + ((p.progress - 0.25) / 0.25) * (pB - pT);
+                    color = "#74b9ff";
+                } 
+                else if (p.progress < 0.75) { 
+                    x = pL + ((p.progress - 0.50) / 0.25) * (pR - pL); y = pB;
+                    color = x < compX ? "#74b9ff" : "#e74c3c"; 
+                } 
+                else { 
+                    x = pR; y = pB - ((p.progress - 0.75) / 0.25) * (pB - pT);
+                    let ratio = (y - pT) / (pB - pT); 
+                    color = ratio > 0.5 ? "#e74c3c" : "#2980b9";
+                }
+
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.arc(x, y, 6, 0, 2*Math.PI); ctx.fill();
+            });
+
+            // Adjust State Labels neatly to avoid overlap
+            drawStateLabel("High-Pressure Liquid", pR - 90, pT - 15, "center");
+            drawStateLabel("Low-Pressure Mixture", pL + 80, pT + 25, "center");
+            drawStateLabel("Low-Pressure Gas", pL + 80, pB + 25, "center");
+            drawStateLabel("High-Pressure Hot Gas", pR - 90, pB + 25, "center");
+            
+            // Coil Title Labels safely above the pipes
+            ctx.fillStyle = "#2c3e50"; ctx.textAlign="center"; ctx.font = "bold 15px Arial";
+            ctx.fillText("Evaporator Coils", pL, pT - 40);
+            ctx.fillText("Condenser Coils", pR, pT - 40);
+
+            requestAnimationFrame(drawCycle);
+        }
+
+        drawCycle(); // Start Animation Loop
+
+
+        /* -----------------------------------------------------------
+           3. QUIZ & GOOGLE FORM SUBMISSION
+        ----------------------------------------------------------- */
+        let submitted = false;
+        let currentQIndex = 0;
+        let userScore = 0;
+        let studentClass = '';
+        let studentNumber = '';
+
+        const quizData = [
+            { q: "What is the primary function of the compressor in an AC?", options: ["To lower the temperature of the refrigerant", "To increase the pressure and temperature of the refrigerant gas", "To absorb heat from the room", "To convert liquid refrigerant to gas"], a: 1 },
+            { q: "In which component does the refrigerant absorb heat from the inside room?", options: ["Condenser", "Expansion Valve", "Compressor", "Evaporator"], a: 3 },
+            { q: "In which component does the refrigerant release heat to the outside?", options: ["Evaporator", "Condenser", "Expansion Valve", "Compressor"], a: 1 },
+            { q: "What happens to the refrigerant as it passes through the expansion valve?", options: ["Pressure increases, temperature increases", "Pressure decreases, temperature decreases", "It changes from gas to solid", "It absorbs electrical energy"], a: 1 },
+            { q: "Coefficient of Performance (COP) is defined as:", options: ["Electrical Power / Cooling Capacity", "Cooling Capacity / Electrical Power", "Volume / Temperature", "Heat Released / Heat Absorbed"], a: 1 },
+            { q: "What phase change occurs inside the evaporator (inside the room)?", options: ["Gas to Liquid", "Liquid to Solid", "Liquid to Gas", "Solid to Gas"], a: 2 },
+            { q: "What phase change occurs inside the condenser (outside)?", options: ["Liquid to Gas", "Gas to Liquid", "Solid to Liquid", "Gas to Solid"], a: 1 },
+            { q: "If an AC has a power of 1000W and a COP of 3, what is its cooling rate?", options: ["3000 W", "333 W", "1000 W", "4000 W"], a: 0 },
+            { q: "The specific heat capacity of air is roughly:", options: ["4200 J/kg°C", "1005 J/kg°C", "1 J/kg°C", "2.5 J/kg°C"], a: 1 },
+            { q: "Heat naturally flows from:", options: ["Low pressure to high pressure", "Cold regions to hot regions", "Hot regions to cold regions", "Liquid to Gas"], a: 2 }
+        ];
+
+        const modal = document.getElementById('quiz-modal');
+        const screenStart = document.getElementById('quiz-start');
+        const screenQA = document.getElementById('quiz-qa');
+        const screenResult = document.getElementById('quiz-result');
+
+        document.getElementById('btn-quiz').addEventListener('click', () => {
+            modal.style.display = 'flex';
+            showScreen(screenStart);
+        });
+
+        function closeQuiz() { modal.style.display = 'none'; }
+
+        function showScreen(screen) {
+            screenStart.classList.remove('active');
+            screenQA.classList.remove('active');
+            screenResult.classList.remove('active');
+            screen.classList.add('active');
+        }
+
+        function startQuiz() {
+            studentClass = document.getElementById('s_class').value.trim();
+            studentNumber = document.getElementById('s_number').value.trim();
+            
+            if(!studentClass || !studentNumber) {
+                alert("Please enter both Class and Class Number.");
+                return;
+            }
+            currentQIndex = 0; userScore = 0;
+            loadQuestion(); showScreen(screenQA);
+        }
+
+        function loadQuestion() {
+            const q = quizData[currentQIndex];
+            document.getElementById('q-header').innerText = `Question ${currentQIndex + 1} of ${quizData.length}`;
+            document.getElementById('q-text').innerText = q.q;
+            
+            const optionsDiv = document.getElementById('q-options');
+            optionsDiv.innerHTML = '';
+            
+            q.options.forEach((opt, index) => {
+                optionsDiv.innerHTML += `<label><input type="radio" name="quiz_opt" value="${index}"> ${opt}</label>`;
+            });
+            document.getElementById('btn-next').innerText = (currentQIndex === quizData.length - 1) ? "View Result" : "Next";
+        }
+
+        function nextQuestion() {
+            const selected = document.querySelector('input[name="quiz_opt"]:checked');
+            if(!selected) { alert("Please select an answer."); return; }
+
+            if(parseInt(selected.value) === quizData[currentQIndex].a) { userScore++; }
+            currentQIndex++;
+
+            if(currentQIndex < quizData.length) { loadQuestion(); } 
+            else { 
+                document.getElementById('final-score').innerText = `${userScore} / ${quizData.length}`;
+                showScreen(screenResult); 
+            }
+        }
+
+        function retryQuiz() { currentQIndex = 0; userScore = 0; loadQuestion(); showScreen(screenQA); }
+
+        function submitQuizData() {
+            document.getElementById('form_class').value = studentClass;
+            document.getElementById('form_number').value = studentNumber;
+            document.getElementById('form_mark').value = userScore;
+
+            submitted = true;
+            document.getElementById('gform').submit();
+            
+            alert(`Results for ${studentClass} (${studentNumber}) submitted successfully!`);
+            closeQuiz();
+        }
+
+        function quizSubmitted() {
+            console.log("Data captured by Google Forms.");
+            submitted = false;
+        }
+
+    </script>
+</body>
+</html>
