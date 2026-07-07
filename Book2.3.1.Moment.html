@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lever & Moment Simulation</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --panel-bg: #ffffff;
+            --lever-color: #8B4513;
+            --text-color: #333;
+            
+            /* Weight Colors */
+            --c-w1: #1abc9c; /* Green */
+            --c-w2: #9b59b6; /* Purple */
+            --c-w3: #e67e22; /* Orange */
+            --c-w4: #e74c3c; /* Red */
+            
+            /* Pivot Colors */
+            --c-p1: #34495e; /* Dark Blue/Gray */
+            --c-p2: #8e44ad; /* Deep Purple */
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 15px;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+
+        /* ROW 1: Upper */
+        .upper-row {
+            background: var(--panel-bg);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .control-group-title {
+            font-weight: bold;
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 3px;
+        }
+
+        .weight-ctrl {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .weight-ctrl input[type="range"] {
+            width: 80px;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .button-group button {
+            padding: 10px 15px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 160px;
+        }
+        
+        #btn-reset { background: #e74c3c; color: white; }
+        #btn-reset:hover { background: #c0392b; }
+        
+        #btn-toggle-pivot { background: #f39c12; color: white; }
+        #btn-toggle-pivot:hover { background: #e67e22; }
+        #btn-toggle-pivot.active { background: #d35400; }
+        
+        #btn-quiz { background: #3498db; color: white; }
+        #btn-quiz:hover { background: #2980b9; }
+
+        /* ROW 2: Middle (Simulation) */
+        .middle-row {
+            flex-grow: 1;
+            background: var(--panel-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 280px;
+            padding: 40px 20px;
+        }
+
+        #simulation-container {
+            width: 100%;
+            max-width: 1000px;
+            position: relative;
+            height: 150px;
+        }
+
+        #lever-wrapper {
+            position: absolute;
+            top: 50px;
+            width: 100%;
+            height: 20px;
+            background-color: var(--lever-color);
+            border-radius: 10px;
+            transition: transform 0.4s ease-in-out;
+            transform-origin: 50% 50%;
+            box-shadow: 0 4px 4px rgba(0,0,0,0.2);
+            z-index: 2;
+        }
+
+        /* Lever CG Arrow */
+        #lever-cg {
+            position: absolute;
+            left: 50%;
+            top: 20px;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #lever-cg .arrow { width: 2px; height: 40px; background-color: var(--lever-color); }
+        #lever-cg .arrowhead { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 10px solid var(--lever-color); }
+        #lever-cg span { font-size: 0.75rem; font-weight: bold; color: var(--lever-color); background: rgba(255,255,255,0.8); padding: 2px 4px; border-radius: 3px; }
+
+        .mark {
+            position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255, 255, 255, 0.7); transform: translateX(-50%);
+        }
+        .mark-label { position: absolute; top: 25px; transform: translateX(-50%); font-size: 12px; font-weight: bold; }
+
+        /* Pivots */
+        .pivot {
+            position: absolute;
+            top: 70px;
+            transform: translateX(-50%);
+            width: 0; height: 0; 
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            cursor: ew-resize;
+            z-index: 1;
+        }
+        #pivot1 { border-bottom: 40px solid var(--c-p1); left: 50%; }
+        #pivot1::after { content: 'P1'; position: absolute; top: 45px; left: -8px; font-size: 12px; font-weight: bold; color: var(--c-p1); }
+        
+        #pivot2 { border-bottom: 40px solid var(--c-p2); left: 70%; display: none; }
+        #pivot2::after { content: 'P2'; position: absolute; top: 45px; left: -8px; font-size: 12px; font-weight: bold; color: var(--c-p2); }
+
+        /* Reaction Force Arrows */
+        .reaction-group {
+            position: absolute;
+            bottom: 80px; /* Sits right on top of the lever */
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 5;
+            pointer-events: none;
+            display: none; /* Hidden until calculated */
+        }
+        .reaction-group .label {
+            font-weight: bold;
+            font-size: 12px;
+            background: rgba(255,255,255,0.9);
+            border: 2px solid;
+            border-radius: 4px;
+            padding: 2px 6px;
+            margin-bottom: -2px;
+            white-space: nowrap;
+        }
+        .reaction-group .arrow-head {
+            width: 0; height: 0;
+            border-left: 7px solid transparent;
+            border-right: 7px solid transparent;
+        }
+        .reaction-group .arrow-body { width: 4px; height: 30px; }
+
+        #r1-group .label { color: var(--c-p1); border-color: var(--c-p1); }
+        #r1-group .arrow-head { border-bottom: 10px solid var(--c-p1); }
+        #r1-group .arrow-body { background: var(--c-p1); }
+
+        #r2-group .label { color: var(--c-p2); border-color: var(--c-p2); }
+        #r2-group .arrow-head { border-bottom: 10px solid var(--c-p2); }
+        #r2-group .arrow-body { background: var(--c-p2); }
+
+        /* Weights */
+        .weight {
+            position: absolute;
+            bottom: 20px;
+            width: 45px; height: 45px;
+            color: white; font-weight: bold; font-size: 0.85rem;
+            display: flex; justify-content: center; align-items: center;
+            border-radius: 5px; cursor: ew-resize;
+            transform: translateX(-50%);
+            user-select: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+            display: none;
+            text-align: center;
+            line-height: 1.1;
+        }
+        #w1 { background: var(--c-w1); left: 10%; }
+        #w2 { background: var(--c-w2); left: 30%; }
+        #w3 { background: var(--c-w3); left: 70%; }
+        #w4 { background: var(--c-w4); left: 90%; }
+
+        /* ROW 3: Lower */
+        .lower-row {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            gap: 15px;
+        }
+
+        .moment-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .moment-title {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+        .moment-subtitle {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .calculation-steps {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1rem;
+            font-weight: bold;
+            line-height: 1.6;
+            margin-bottom: 10px;
+            min-height: 50px;
+        }
+
+        .moment-total { font-size: 1.3rem; font-weight: bold; text-align: right; }
+
+        #balanced-sign {
+            flex: 0.5; display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; color: #2ecc71; font-weight: bold;
+            text-shadow: 0 0 10px rgba(46, 204, 113, 0.8); text-transform: uppercase;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        #balanced-sign.visible { opacity: 1; }
+
+        /* Quiz Modal Overlay */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: white; padding: 30px; border-radius: 10px;
+            width: 90%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center;
+        }
+        .quiz-section { display: none; text-align: left; }
+        .quiz-section.active { display: block; }
+        .quiz-header { color: #2980b9; margin-top: 0; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-weight: bold; margin-bottom: 5px;}
+        .input-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;}
+        .options label {
+            display: block; margin-bottom: 10px; padding: 10px;
+            background: #f1f5f9; border-radius: 5px; cursor: pointer; transition: 0.2s;
+        }
+        .options label:hover { background: #e2e8f0; }
+        .quiz-buttons { display: flex; justify-content: space-between; margin-top: 25px; }
+        .btn-primary { background: #3498db; color: white; padding: 10px 20px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-success { background: #2ecc71; color: white; padding: 10px 20px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-secondary { background: #95a5a6; color: white; padding: 10px 20px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; }
+        #final-score { font-size: 3rem; color: #2980b9; margin: 20px 0; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- Upper Row -->
+    <div class="upper-row">
+        <!-- Lever Controls -->
+        <div class="control-group">
+            <div class="control-group-title">Lever Settings</div>
+            <div class="weight-ctrl">
+                <span style="color: var(--lever-color);">Lever Mass:</span>
+                <input type="range" id="slide-lever" min="0" max="100" value="50">
+                <span id="val-lever">50</span> N
+            </div>
+        </div>
+
+        <!-- Weight Controls 1 & 2 -->
+        <div class="control-group">
+            <div class="control-group-title">Weights 1 & 2</div>
+            <div class="weight-ctrl">
+                <input type="checkbox" id="chk-w1"> 
+                <span style="color: var(--c-w1);">W1:</span>
+                <input type="range" id="slide-w1" min="10" max="50" value="20">
+                <span id="val-w1">20</span> N
+            </div>
+            <div class="weight-ctrl">
+                <input type="checkbox" id="chk-w2"> 
+                <span style="color: var(--c-w2);">W2:</span>
+                <input type="range" id="slide-w2" min="10" max="50" value="20">
+                <span id="val-w2">20</span> N
+            </div>
+        </div>
+
+        <!-- Weight Controls 3 & 4 -->
+        <div class="control-group">
+            <div class="control-group-title">Weights 3 & 4</div>
+            <div class="weight-ctrl">
+                <input type="checkbox" id="chk-w3"> 
+                <span style="color: var(--c-w3);">W3:</span>
+                <input type="range" id="slide-w3" min="10" max="50" value="20">
+                <span id="val-w3">20</span> N
+            </div>
+            <div class="weight-ctrl">
+                <input type="checkbox" id="chk-w4"> 
+                <span style="color: var(--c-w4);">W4:</span>
+                <input type="range" id="slide-w4" min="10" max="50" value="20">
+                <span id="val-w4">20</span> N
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button id="btn-reset">Reset Simulation</button>
+            <button id="btn-toggle-pivot">Turn ON 2nd Pivot</button>
+            <button id="btn-quiz">Start a Quiz</button>
+        </div>
+    </div>
+
+    <!-- Middle Row (Simulation) -->
+    <div class="middle-row">
+        <div id="simulation-container">
+            <!-- Pivot Elements -->
+            <div id="pivot1" class="pivot"></div>
+            <div id="pivot2" class="pivot"></div>
+            
+            <!-- Reaction Arrows -->
+            <div class="reaction-group" id="r1-group">
+                <div class="label">R₁ = 0N</div>
+                <div class="arrow-head"></div>
+                <div class="arrow-body"></div>
+            </div>
+            <div class="reaction-group" id="r2-group">
+                <div class="label">R₂ = 0N</div>
+                <div class="arrow-head"></div>
+                <div class="arrow-body"></div>
+            </div>
+            
+            <div id="lever-wrapper">
+                <!-- Javascript will inject marks 0 to 100 here -->
+                <div id="lever-cg">
+                    <div class="arrow"></div>
+                    <div class="arrowhead"></div>
+                    <span>CG</span>
+                </div>
+
+                <div class="weight" id="w1">W1<br>20N</div>
+                <div class="weight" id="w2">W2<br>20N</div>
+                <div class="weight" id="w3">W3<br>20N</div>
+                <div class="weight" id="w4">W4<br>20N</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lower Row -->
+    <div class="lower-row">
+        <!-- ACW Moment Box -->
+        <div class="moment-box">
+            <div class="moment-title">Anticlockwise Moments</div>
+            <div class="moment-subtitle">(Calculated about P1)</div>
+            <div class="calculation-steps" id="acw-steps">0 N m</div>
+            <div class="moment-total" style="color: #e74c3c;">Total: <span id="acw-value">0.00</span> N m</div>
+        </div>
+        
+        <div id="balanced-sign">Balanced!</div>
+        
+        <!-- CW Moment Box -->
+        <div class="moment-box">
+            <div class="moment-title">Clockwise Moments</div>
+            <div class="moment-subtitle">(Calculated about P1)</div>
+            <div class="calculation-steps" id="cw-steps">0 N m</div>
+            <div class="moment-total" style="color: #3498db;">Total: <span id="cw-value">0.00</span> N m</div>
+        </div>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div class="modal-overlay" id="quiz-modal">
+        <!-- ... [Quiz UI is exactly the same as requested] ... -->
+        <div class="modal-content">
+            <div id="quiz-screen-start" class="quiz-section active">
+                <h2 class="quiz-header">HKDSE Physics - Moments Quiz</h2>
+                <div class="input-group">
+                    <label>Class (e.g., 5A):</label>
+                    <input type="text" id="s_class" placeholder="Enter your class">
+                </div>
+                <div class="input-group">
+                    <label>Class Number:</label>
+                    <input type="number" id="s_number" placeholder="Enter your number">
+                </div>
+                <div class="quiz-buttons">
+                    <button class="btn-secondary" onclick="closeQuiz()">Cancel</button>
+                    <button class="btn-primary" onclick="startQuiz()">Begin Quiz</button>
+                </div>
+            </div>
+
+            <div id="quiz-screen-qa" class="quiz-section">
+                <h2 class="quiz-header" id="q-header">Question 1/10</h2>
+                <h3 id="q-text" style="margin-bottom: 20px;">Question text?</h3>
+                <div class="options" id="q-options"></div>
+                <div class="quiz-buttons">
+                    <button class="btn-secondary" onclick="closeQuiz()">Quit</button>
+                    <button class="btn-primary" id="btn-next" onclick="nextQuestion()">Next Question</button>
+                </div>
+            </div>
+
+            <div id="quiz-screen-result" class="quiz-section" style="text-align: center;">
+                <h2 class="quiz-header">Quiz Finished!</h2>
+                <p>Your Score:</p>
+                <div id="final-score">0 / 10</div>
+                <div class="quiz-buttons" style="justify-content: center; gap: 20px;">
+                    <button class="btn-secondary" onclick="retryQuiz()">Retry Quiz</button>
+                    <button class="btn-success" onclick="submitQuizData()">Finish & Send Mark</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted){ quizSubmitted(); }"></iframe>
+    <form action="https://docs.google.com/forms/d/e/1FAIpQLSeBYgy3fBFDDFGJvsI0bKAn9gio9OUtz4uqMRlGDtcbgUW-Jw/formResponse" method="POST" target="hidden_iframe" id="gform" style="display: none;">
+        <input type="hidden" name="entry.753594098" id="form_class">
+        <input type="hidden" name="entry.777103265" id="form_number">
+        <input type="hidden" name="entry.1173990498" id="form_mark">
+    </form>
+
+
+    <script>
+        /* -----------------------------------------------------------
+           SIMULATION LOGIC
+        ----------------------------------------------------------- */
+        const container = document.getElementById('simulation-container');
+        const lever = document.getElementById('lever-wrapper');
+        const pivot1 = document.getElementById('pivot1');
+        const pivot2 = document.getElementById('pivot2');
+        
+        let pivot1Pos = 50;
+        let pivot2Pos = 70;
+        let leverWeight = 50;
+        let twoPivotsActive = false;
+
+        // Weight Definitions
+        const weights = {
+            'w1': { el: document.getElementById('w1'), chk: document.getElementById('chk-w1'), sld: document.getElementById('slide-w1'), val: document.getElementById('val-w1'), mass: 20, pos: 10, color: '#1abc9c', label: 'W1' },
+            'w2': { el: document.getElementById('w2'), chk: document.getElementById('chk-w2'), sld: document.getElementById('slide-w2'), val: document.getElementById('val-w2'), mass: 20, pos: 30, color: '#9b59b6', label: 'W2' },
+            'w3': { el: document.getElementById('w3'), chk: document.getElementById('chk-w3'), sld: document.getElementById('slide-w3'), val: document.getElementById('val-w3'), mass: 20, pos: 70, color: '#e67e22', label: 'W3' },
+            'w4': { el: document.getElementById('w4'), chk: document.getElementById('chk-w4'), sld: document.getElementById('slide-w4'), val: document.getElementById('val-w4'), mass: 20, pos: 90, color: '#e74c3c', label: 'W4' }
+        };
+
+        // UI Event Listeners
+        const slideLever = document.getElementById('slide-lever');
+        const valLever = document.getElementById('val-lever');
+        const leverCg = document.getElementById('lever-cg');
+        
+        slideLever.addEventListener('input', (e) => {
+            leverWeight = parseInt(e.target.value);
+            valLever.innerText = leverWeight;
+            leverCg.style.display = leverWeight > 0 ? 'flex' : 'none';
+            calculateMoments();
+        });
+        
+        // Initialize Marks (0 to 100cm)
+        for (let i = 0; i <= 10; i++) {
+            let pct = i * 10;
+            let mark = document.createElement('div');
+            mark.className = 'mark'; mark.style.left = `${pct}%`;
+            lever.appendChild(mark);
+            let label = document.createElement('div');
+            label.className = 'mark-label'; label.style.left = `${pct}%`; label.innerText = `${pct}`;
+            lever.appendChild(label);
+        }
+
+        // Toggle 2nd Pivot
+        const btnTogglePivot = document.getElementById('btn-toggle-pivot');
+        btnTogglePivot.addEventListener('click', () => {
+            twoPivotsActive = !twoPivotsActive;
+            if (twoPivotsActive) {
+                pivot2.style.display = 'block';
+                btnTogglePivot.innerText = 'Turn OFF 2nd Pivot';
+                btnTogglePivot.classList.add('active');
+            } else {
+                pivot2.style.display = 'none';
+                btnTogglePivot.innerText = 'Turn ON 2nd Pivot';
+                btnTogglePivot.classList.remove('active');
+            }
+            calculateMoments();
+        });
+
+        // Setup Bindings
+        Object.keys(weights).forEach(key => {
+            const w = weights[key];
+            w.chk.addEventListener('change', (e) => { w.el.style.display = e.target.checked ? 'flex' : 'none'; calculateMoments(); });
+            w.sld.addEventListener('input', (e) => { w.mass = parseInt(e.target.value); w.val.innerText = w.mass; w.el.innerHTML = `${w.label}<br>${w.mass}N`; calculateMoments(); });
+        });
+
+        // DRAG AND DROP
+        let isDragging = false;
+        let dragTarget = null;
+
+        const startDrag = (e) => {
+            if (e.target.classList.contains('pivot') || e.target.classList.contains('weight')) {
+                isDragging = true;
+                dragTarget = e.target;
+                e.preventDefault();
+            }
+        };
+
+        const onDrag = (e) => {
+            if (!isDragging || !dragTarget) return;
+            let clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const rect = container.getBoundingClientRect();
+            let xPos = clientX - rect.left;
+            let percent = Math.round(Math.max(0, Math.min(100, (xPos / rect.width) * 100)));
+            dragTarget.style.left = `${percent}%`;
+
+            if (dragTarget.id === 'pivot1') { pivot1Pos = percent; } 
+            else if (dragTarget.id === 'pivot2') { pivot2Pos = percent; } 
+            else { weights[dragTarget.id].pos = percent; }
+            calculateMoments();
+        };
+
+        const stopDrag = () => { isDragging = false; dragTarget = null; };
+        container.addEventListener('mousedown', startDrag); document.addEventListener('mousemove', onDrag); document.addEventListener('mouseup', stopDrag);
+        container.addEventListener('touchstart', startDrag, {passive: false}); document.addEventListener('touchmove', onDrag, {passive: false}); document.addEventListener('touchend', stopDrag);
+
+        // MATHEMATICS & UI UPDATER
+        function calculateMoments() {
+            let P1 = pivot1Pos;
+            let P2 = pivot2Pos;
+            let R1 = 0, R2 = 0;
+            let rotationAngle = 0;
+            let rotOrigin = P1;
+
+            // 1. Center of Gravity of all DOWNWARD forces
+            let totalMass = 0;
+            let cgSum = 0;
+
+            Object.keys(weights).forEach(key => {
+                const w = weights[key];
+                if (w.chk.checked) { totalMass += w.mass; cgSum += w.mass * w.pos; }
+            });
+            if (leverWeight > 0) { totalMass += leverWeight; cgSum += leverWeight * 50; }
+
+            let x_cg = totalMass > 0 ? cgSum / totalMass : 50;
+
+            // 2. Static Reactions and Tip Angle
+            if (!twoPivotsActive) {
+                R1 = totalMass;
+                rotOrigin = P1;
+                if (totalMass > 0) {
+                    if (x_cg < P1 - 0.05) rotationAngle = -10;
+                    else if (x_cg > P1 + 0.05) rotationAngle = 10;
+                }
+            } else {
+                let leftP = Math.min(P1, P2);
+                let rightP = Math.max(P1, P2);
+                
+                if (totalMass === 0) {
+                    R1 = 0; R2 = 0;
+                } else if (leftP === rightP) {
+                    // Both pivots identically placed
+                    R1 = totalMass / 2; R2 = totalMass / 2;
+                    rotOrigin = leftP;
+                    if (x_cg < leftP - 0.05) rotationAngle = -10;
+                    else if (x_cg > leftP + 0.05) rotationAngle = 10;
+                } else {
+                    if (x_cg < leftP - 0.01) {
+                        // Tips left over leftP
+                        rotationAngle = -10; rotOrigin = leftP;
+                        if (P1 === leftP) { R1 = totalMass; R2 = 0; } else { R2 = totalMass; R1 = 0; }
+                    } else if (x_cg > rightP + 0.01) {
+                        // Tips right over rightP
+                        rotationAngle = 10; rotOrigin = rightP;
+                        if (P1 === rightP) { R1 = totalMass; R2 = 0; } else { R2 = totalMass; R1 = 0; }
+                    } else {
+                        // Balanced on both pivots
+                        let rRight = totalMass * (x_cg - leftP) / (rightP - leftP);
+                        let rLeft = totalMass - rRight;
+                        if (P1 === leftP) { R1 = rLeft; R2 = rRight; } else { R2 = rLeft; R1 = rRight; }
+                    }
+                }
+            }
+
+            // 3. Update Visuals
+            lever.style.transformOrigin = `${rotOrigin}% 50%`;
+            lever.style.transform = `rotate(${rotationAngle}deg)`;
+
+            const updateArrow = (id, rVal, pos) => {
+                let el = document.getElementById(id);
+                if (rVal > 0.01) {
+                    el.style.display = 'flex'; el.style.left = `${pos}%`;
+                    el.querySelector('.label').innerText = `${id === 'r1-group' ? 'R₁' : 'R₂'} = ${rVal.toFixed(1)}N`;
+                } else {
+                    el.style.display = 'none';
+                }
+            };
+            
+            updateArrow('r1-group', R1, P1);
+            if (twoPivotsActive) { updateArrow('r2-group', R2, P2); } else { document.getElementById('r2-group').style.display = 'none'; }
+
+            // 4. Calculate Moments about P1 for the lower box
+            let cwMoment = 0; let acwMoment = 0;
+            let cwStepsArr = []; let acwStepsArr = [];
+
+            // Helper for downward blocks
+            const addDownward = (mass, pos, color, labelText) => {
+                let distM = (pos - P1) / 100;
+                if (distM > 0) {
+                    cwMoment += mass * distM;
+                    cwStepsArr.push(`<span style="color:${color}">${mass}N × ${distM.toFixed(2)}m ${labelText}</span>`);
+                } else if (distM < 0) {
+                    let absD = Math.abs(distM);
+                    acwMoment += mass * absD;
+                    acwStepsArr.push(`<span style="color:${color}">${mass}N × ${absD.toFixed(2)}m ${labelText}</span>`);
+                }
+            };
+
+            // Loop weights
+            Object.keys(weights).forEach(k => { if (weights[k].chk.checked) addDownward(weights[k].mass, weights[k].pos, weights[k].color, ''); });
+            if (leverWeight > 0) addDownward(leverWeight, 50, '#8B4513', '(Lever)');
+
+            // R2 Upward Force Effect (if 2nd pivot active and providing force)
+            if (twoPivotsActive && R2 > 0) {
+                let p2DistM = (P2 - P1) / 100;
+                let rStr = `R₂ (${R2.toFixed(1)}N) × ${Math.abs(p2DistM).toFixed(2)}m (Upward)`;
+                if (p2DistM > 0) {
+                    acwMoment += R2 * p2DistM;
+                    acwStepsArr.push(`<span style="color:var(--c-p2)">${rStr}</span>`);
+                } else if (p2DistM < 0) {
+                    cwMoment += R2 * Math.abs(p2DistM);
+                    cwStepsArr.push(`<span style="color:var(--c-p2)">${rStr}</span>`);
+                }
+            }
+
+            document.getElementById('cw-steps').innerHTML = cwStepsArr.length > 0 ? cwStepsArr.join(' <br>+ ') : '0 N m';
+            document.getElementById('acw-steps').innerHTML = acwStepsArr.length > 0 ? acwStepsArr.join(' <br>+ ') : '0 N m';
+            document.getElementById('cw-value').innerText = cwMoment.toFixed(2);
+            document.getElementById('acw-value').innerText = acwMoment.toFixed(2);
+
+            // Balance Detection
+            const balancedSign = document.getElementById('balanced-sign');
+            if (rotationAngle === 0 && totalMass > 0) { balancedSign.classList.add('visible'); } 
+            else { balancedSign.classList.remove('visible'); }
+        }
+
+        // Reset
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            pivot1Pos = 50; pivot1.style.left = '50%';
+            pivot2Pos = 70; pivot2.style.left = '70%';
+            
+            twoPivotsActive = false;
+            pivot2.style.display = 'none';
+            btnTogglePivot.innerText = 'Turn ON 2nd Pivot';
+            btnTogglePivot.classList.remove('active');
+
+            leverWeight = 50; slideLever.value = 50; valLever.innerText = 50; leverCg.style.display = 'flex';
+            
+            let defaults = { 'w1': 10, 'w2': 30, 'w3': 70, 'w4': 90 };
+            Object.keys(weights).forEach(key => {
+                const w = weights[key];
+                w.chk.checked = false; w.el.style.display = 'none'; w.pos = defaults[key]; w.el.style.left = `${w.pos}%`;
+                w.mass = 20; w.sld.value = 20; w.val.innerText = 20; w.el.innerHTML = `${w.label}<br>20N`;
+            });
+            calculateMoments();
+        });
+
+        calculateMoments();
+
+        /* -----------------------------------------------------------
+           QUIZ & GOOGLE FORM LOGIC (Unchanged functionality)
+        ----------------------------------------------------------- */
+        let submitted = false; let currentQIndex = 0; let userScore = 0; let studentClass = ''; let studentNumber = '';
+
+        const quizData = [
+            { q: "What is the principle of moments?", options: ["Sum of clockwise moments = Sum of anticlockwise moments", "Force = Mass x Acceleration", "Total energy is conserved", "Moments must always be zero"], a: 0 },
+            { q: "Which formula defines the moment of a force?", options: ["Force / distance", "Mass x Velocity", "Force x Perpendicular distance from pivot", "Distance / Force"], a: 2 },
+            { q: "What is the SI unit for the moment of a force?", options: ["Newton (N)", "Meter (m)", "Meter second (m s)", "Newton meter (N m)"], a: 3 },
+            { q: "A 50 N force is applied 0.4 m from the pivot. What is the moment?", options: ["125 N m", "20 N m", "50 N m", "0.008 N m"], a: 1 },
+            { q: "If the total clockwise moment is greater than the total anticlockwise moment, the lever will:", options: ["Remain stationary", "Rotate clockwise", "Rotate anticlockwise", "Move downwards uniformly"], a: 1 },
+            { q: "A uniform meter rule is balanced exactly at its 50cm mark. The net moment on it is:", options: ["Zero", "Maximum", "Depends on its mass", "Positive"], a: 0 },
+            { q: "Which of the following factors does NOT affect the moment of a force?", options: ["Magnitude of the force", "Direction of the force", "Distance from the pivot", "Velocity of the lever"], a: 3 },
+            { q: "Two weights W1 (at distance d1) and W2 (at distance d2) balance on a lever. Which equation is correct?", options: ["W1/d1 = W2/d2", "W1 + d1 = W2 + d2", "W1 x d1 = W2 x d2", "W1 x W2 = d1 x d2"], a: 2 },
+            { q: "If the pivot is moved closer to a specific weight on the lever, the moment caused by that weight:", options: ["Increases", "Decreases", "Remains unchanged", "Becomes zero immediately"], a: 1 },
+            { q: "Where is the center of gravity of a uniform straight lever (like a meter rule)?", options: ["At the ends", "At the pivot, regardless of position", "At its geometric center (the 50cm mark)", "It does not have a center of gravity"], a: 2 }
+        ];
+
+        const modal = document.getElementById('quiz-modal'); const screenStart = document.getElementById('quiz-screen-start');
+        const screenQA = document.getElementById('quiz-screen-qa'); const screenResult = document.getElementById('quiz-screen-result');
+
+        document.getElementById('btn-quiz').addEventListener('click', () => { modal.style.display = 'flex'; showScreen(screenStart); });
+        function closeQuiz() { modal.style.display = 'none'; }
+        function showScreen(screen) { screenStart.classList.remove('active'); screenQA.classList.remove('active'); screenResult.classList.remove('active'); screen.classList.add('active'); }
+
+        function startQuiz() {
+            studentClass = document.getElementById('s_class').value.trim(); studentNumber = document.getElementById('s_number').value.trim();
+            if(!studentClass || !studentNumber) { alert("Please enter both Class and Class Number."); return; }
+            currentQIndex = 0; userScore = 0; loadQuestion(); showScreen(screenQA);
+        }
+
+        function loadQuestion() {
+            const q = quizData[currentQIndex]; document.getElementById('q-header').innerText = `Question ${currentQIndex + 1} of ${quizData.length}`;
+            document.getElementById('q-text').innerText = q.q; const optionsDiv = document.getElementById('q-options'); optionsDiv.innerHTML = '';
+            q.options.forEach((opt, index) => { optionsDiv.innerHTML += `<label><input type="radio" name="quiz_opt" value="${index}"> ${opt}</label>`; });
+            document.getElementById('btn-next').innerText = (currentQIndex === quizData.length - 1) ? "View Result" : "Next Question";
+        }
+
+        function nextQuestion() {
+            const selected = document.querySelector('input[name="quiz_opt"]:checked');
+            if(!selected) { alert("Please select an answer."); return; }
+            if(parseInt(selected.value) === quizData[currentQIndex].a) userScore++;
+            currentQIndex++;
+            if(currentQIndex < quizData.length) loadQuestion(); else { document.getElementById('final-score').innerText = `${userScore} / ${quizData.length}`; showScreen(screenResult); }
+        }
+
+        function retryQuiz() { currentQIndex = 0; userScore = 0; loadQuestion(); showScreen(screenQA); }
+
+        function submitQuizData() {
+            document.getElementById('form_class').value = studentClass; document.getElementById('form_number').value = studentNumber; document.getElementById('form_mark').value = userScore;
+            submitted = true; document.getElementById('gform').submit();
+            alert(`Results for ${studentClass} (${studentNumber}) submitted successfully!`); closeQuiz();
+        }
+
+        function quizSubmitted() { console.log("Data captured by Google Forms."); submitted = false; }
+    </script>
+</body>
+</html>
