@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radiation Properties Simulation (HK S5 Physics)</title>
+    <style>
+        :root {
+            --primary: #0056b3;
+            --bg: #f4f7f6;
+            --panel-bg: #ffffff;
+            --border: #ccc;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h2 {
+            margin: 5px 0 15px 0;
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            width: 1200px;
+            max-width: 100%;
+            display: flex;
+            gap: 15px;
+            height: 550px;
+        }
+        
+        /* Layout Columns */
+        .column {
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        .col-left { width: 25%; }
+        .col-middle { width: 50%; position: relative; }
+        .col-right { width: 25%; }
+        
+        .col-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 15px;
+        }
+        .control-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #444;
+            font-size: 14px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        .checkbox-group input { margin: 0; cursor: pointer; }
+        .checkbox-group label { margin: 0; font-weight: normal; cursor: pointer; }
+        
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #004494; }
+        button.quiz-btn { background-color: #28a745; margin-top: auto; }
+        button.quiz-btn:hover { background-color: #218838; }
+        button.record-btn { background-color: #17a2b8; margin-top: 0; margin-bottom: 15px;}
+        button.record-btn:hover { background-color: #138496; }
+
+        /* Simulation Area */
+        canvas {
+            border: 1px solid #eee;
+            border-radius: 4px;
+            background-color: #1a1a1a; 
+            flex-grow: 1;
+            width: 100%;
+        }
+        .readout {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.9);
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-family: monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #d9534f;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        /* Data Table */
+        .table-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            text-align: left;
+        }
+        th, td {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            position: sticky;
+            top: 0;
+        }
+
+        /* Quiz Modal Overlay */
+        #quiz-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .quiz-content {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .quiz-content h3 { margin-top: 0; color: var(--primary); }
+        .form-group { margin-bottom: 15px; }
+        .form-group input { width: 100%; padding: 8px; box-sizing: border-box; }
+        .question-text { font-size: 16px; font-weight: bold; margin-bottom: 15px; }
+        .option-btn {
+            display: block; width: 100%; text-align: left;
+            margin-bottom: 10px; padding: 10px;
+            background: #f8f9fa; color: #333; border: 1px solid #ccc;
+            font-weight: normal;
+        }
+        .option-btn:hover { background: #e2e6ea; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <h2>Radioactive Radiation Properties Simulation</h2>
+
+    <div class="container">
+        <!-- LEFT COLUMN: Controls -->
+        <div class="column col-left">
+            <div class="col-title">Variables</div>
+            
+            <div class="control-group">
+                <label>Emitting Radiation Types:</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="chk-alpha" checked>
+                    <label for="chk-alpha" style="color: #ff4d4d; font-weight: bold;">Alpha (α)</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="chk-beta">
+                    <label for="chk-beta" style="color: #4da6ff; font-weight: bold;">Beta (β)</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="chk-gamma">
+                    <label for="chk-gamma" style="color: #4dff4d; font-weight: bold;">Gamma (γ)</label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Distance to Detector: <span id="dist-val">3 cm</span></label>
+                <input type="range" id="slider-dist" min="1" max="1000" value="3" oninput="updateDistLabel()">
+                <div style="font-size: 11px; color: #666; display: flex; justify-content: space-between;">
+                    <span>1 cm</span><span>10 m (1000 cm)</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Absorber (in middle):</label>
+                <select id="sel-absorber">
+                    <option value="none" selected>None (Air only)</option>
+                    <option value="paper">Paper</option>
+                    <option value="al">5 mm Aluminium</option>
+                    <option value="lead">25 mm Lead</option>
+                </select>
+            </div>
+
+            <button class="quiz-btn" onclick="openQuizIntro()">Start a Quiz</button>
+        </div>
+
+        <!-- MIDDLE COLUMN: Simulation -->
+        <div class="column col-middle">
+            <div class="col-title">Experiment Visual</div>
+            <div class="readout" id="readout-cpm">Count Rate: 0 c.p.m.</div>
+            <canvas id="simCanvas" width="550" height="420"></canvas>
+        </div>
+
+        <!-- RIGHT COLUMN: Data Record -->
+        <div class="column col-right">
+            <button class="record-btn" onclick="recordData()">Record Data</button>
+            <div class="col-title" style="border:none; margin-bottom:5px;">Data Table</div>
+            <div class="table-container">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>Radiation</th>
+                            <th>Dist.</th>
+                            <th>Absorber</th>
+                            <th>c.p.m.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Data rows added dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <button onclick="clearData()" style="background-color: #6c757d; margin-top:10px;">Clear Table</button>
+        </div>
+    </div>
+
+    <!-- QUIZ MODAL -->
+    <div id="quiz-modal">
+        <div class="quiz-content">
+            <div id="quiz-intro">
+                <h3>Physics Simulation Quiz</h3>
+                <div class="form-group">
+                    <label>Class (e.g., 5A):</label>
+                    <input type="text" id="input-class" placeholder="Enter your Class">
+                </div>
+                <div class="form-group">
+                    <label>Class Number:</label>
+                    <input type="number" id="input-number" placeholder="Enter your Class Number">
+                </div>
+                <button onclick="startQuizQuestions()">Start Quiz</button>
+                <button class="quiz-btn" style="background:#dc3545;" onclick="closeQuiz()">Cancel</button>
+            </div>
+
+            <div id="quiz-questions" class="hidden">
+                <h3>Question <span id="q-current">1</span> of 10</h3>
+                <div id="q-text" class="question-text"></div>
+                <div id="q-options"></div>
+            </div>
+
+            <div id="quiz-results" class="hidden">
+                <h3>Quiz Completed!</h3>
+                <p style="font-size: 18px;">Your Score: <strong id="score-text"></strong> / 10</p>
+                <p style="font-size: 14px; color: #555;">Click "Finish Test" to automatically submit your score via Google Forms.</p>
+                <button onclick="retryQuiz()">Retry Test</button>
+                <button class="quiz-btn" onclick="finishQuiz()">Finish Test</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Form for Automatic Background Submission -->
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+    <form id="google-form" action="https://docs.google.com/forms/d/e/1FAIpQLSd4-WqJowNt4qqUvuiW9c9S-sTVruKEp36t0KYSD8hBDT4AGw/formResponse" method="POST" target="hidden_iframe" style="display:none;">
+        <input type="hidden" name="entry.753594098" id="form-class">
+        <input type="hidden" name="entry.777103265" id="form-number">
+        <input type="hidden" name="entry.1173990498" id="form-mark">
+    </form>
+
+    <script>
+        /* =========================================
+           PHYSICS SIMULATION LOGIC
+        ========================================= */
+        const canvas = document.getElementById("simCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Distance Limits
+        const ALPHA_RANGE = 5;      // cm (Sudden drop beyond this)
+        const BETA_RANGE = 600;     // cm (Sudden drop beyond 6m)
+        
+        // Base count rates
+        const BASE_ALPHA = 4000;
+        const BASE_BETA = 3000;
+        const BASE_GAMMA = 2000;
+        const BG_RADIATION = 25;    // Background count rate
+
+        let particles = [];
+        let displayedCpm = BG_RADIATION;
+        let theoreticalCpm = BG_RADIATION;
+
+        function updateDistLabel() {
+            let dist = document.getElementById("slider-dist").value;
+            let text = dist < 100 ? `${dist} cm` : `${(dist/100).toFixed(2)} m`;
+            document.getElementById("dist-val").innerText = text;
+        }
+
+        // Generate Random Gaussian/Poisson Noise for realism
+        function getNoise(mean) {
+            return mean + (Math.random() - 0.5) * Math.sqrt(mean) * 2;
+        }
+
+        function getActiveSources() {
+            return {
+                a: document.getElementById("chk-alpha").checked,
+                b: document.getElementById("chk-beta").checked,
+                g: document.getElementById("chk-gamma").checked
+            };
+        }
+
+        function calculateCountRate() {
+            let dist = parseFloat(document.getElementById("slider-dist").value);
+            let absorber = document.getElementById("sel-absorber").value;
+            let src = getActiveSources();
+
+            let total = BG_RADIATION;
+
+            // Alpha Logic: Steady until 5cm, completely stops after 5cm.
+            // Also completely stopped by any absorber.
+            if (src.a) {
+                if (dist <= ALPHA_RANGE && absorber === "none") {
+                    total += BASE_ALPHA;
+                }
+            }
+
+            // Beta Logic: Steady until 6m (600cm), completely stops after 6m.
+            // Passes through None and Paper. Stopped by Al and Lead.
+            if (src.b) {
+                if (dist <= BETA_RANGE && (absorber === "none" || absorber === "paper")) {
+                    total += BASE_BETA;
+                }
+            }
+
+            // Gamma Logic: No distance-based dropping within 10m.
+            // Passes through None, Paper, and 5mm Al entirely.
+            // Counting reduced by half for 25mm Lead.
+            if (src.g) {
+                let attenuation = 1.0;
+                if (absorber === "lead") {
+                    attenuation = 0.5; // Reduced exactly by half
+                }
+                
+                total += BASE_GAMMA * attenuation;
+            }
+
+            theoreticalCpm = total;
+            
+            // Smooth out the displayed number to simulate realistic counting fluctuations
+            displayedCpm += (getNoise(theoreticalCpm) - displayedCpm) * 0.1;
+            
+            document.getElementById("readout-cpm").innerText = `Count Rate: ${Math.round(displayedCpm)} c.p.m.`;
+        }
+
+        class Particle {
+            constructor(type) {
+                this.type = type;
+                this.x = 80; // Start at lead opening
+                this.y = 210 + (Math.random() - 0.5) * 20; // Spread in opening
+                this.speed = Math.random() * 2 + 3;
+                this.active = true;
+                
+                // Visual properties
+                if (type === 'a') { this.color = '#ff4d4d'; this.size = 3; }
+                if (type === 'b') { this.color = '#4da6ff'; this.size = 1.5; this.speed *= 1.5; }
+                if (type === 'g') { this.color = '#4dff4d'; this.size = 2; this.speed *= 2; this.phase = Math.random()*Math.PI*2; }
+            }
+
+            update(dist, absorber) {
+                if (!this.active) return;
+                this.x += this.speed;
+
+                // Canvas mapping: 
+                // Source opening X = 80
+                // Detector face X = 450
+                // Physical visual gap = 370px
+                let visualGap = 370;
+                
+                // 1. Check Air Absorption (Sudden drop at limits)
+                if (this.type === 'a' && dist > ALPHA_RANGE) {
+                    let limitX = 80 + (ALPHA_RANGE / dist) * visualGap;
+                    if (this.x >= limitX) this.active = false;
+                }
+                if (this.type === 'b' && dist > BETA_RANGE) {
+                    let limitX = 80 + (BETA_RANGE / dist) * visualGap;
+                    if (this.x >= limitX) this.active = false;
+                }
+
+                // 2. Check Material Absorber Collision
+                // Absorber is visually drawn at X = 240 to 260
+                if (absorber !== "none" && this.x >= 240 && this.x <= 260) {
+                    if (absorber === "paper" && this.type === 'a') this.active = false; // Paper blocks Alpha
+                    if (absorber === "al" && (this.type === 'a' || this.type === 'b')) this.active = false; // Al blocks Alpha, Beta
+                    if (absorber === "lead") {
+                        if (this.type === 'a' || this.type === 'b') this.active = false; // Lead blocks Alpha, Beta
+                        // Lead stops exactly 50% of Gamma visually
+                        if (this.type === 'g' && Math.random() > 0.5) this.active = false; 
+                    }
+                }
+
+                // 3. Reached Detector Frame
+                if (this.x >= 450) {
+                    this.active = false;
+                }
+
+                if (this.type === 'g') this.phase += 0.2;
+            }
+
+            draw() {
+                if (!this.active) return;
+                ctx.fillStyle = this.color;
+                
+                if (this.type === 'g') {
+                    // Draw sinusoidal wave logic for Gamma rays
+                    let waveY = this.y + Math.sin(this.phase) * 5;
+                    ctx.beginPath();
+                    ctx.arc(this.x, waveY, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let dist = parseFloat(document.getElementById("slider-dist").value);
+            let absorber = document.getElementById("sel-absorber").value;
+
+            // Draw Lead Container (Source)
+            ctx.fillStyle = "#555";
+            ctx.fillRect(20, 150, 60, 120); 
+            ctx.fillStyle = "#1a1a1a"; // Create opening
+            ctx.fillRect(70, 195, 20, 30);
+            ctx.fillStyle = "#fff";
+            ctx.font = "12px Arial";
+            ctx.fillText("Source", 30, 140);
+
+            // Draw Detector (GM Tube)
+            ctx.fillStyle = "#999";
+            ctx.fillRect(450, 180, 80, 60);
+            ctx.fillStyle = "#333";
+            ctx.fillRect(445, 185, 5, 50); // Window
+            ctx.fillStyle = "#fff";
+            ctx.fillText("GM Tube", 460, 170);
+
+            // Draw connecting wire
+            ctx.strokeStyle = "#777";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(530, 210);
+            ctx.lineTo(550, 210);
+            ctx.stroke();
+
+            // Draw Absorber if selected (in the middle X=240 to 260)
+            if (absorber !== "none") {
+                if (absorber === "paper") {
+                    ctx.fillStyle = "#fdfdfd"; // White paper
+                    ctx.fillRect(245, 160, 5, 100);
+                    ctx.fillText("Paper", 235, 150);
+                } else if (absorber === "al") {
+                    ctx.fillStyle = "#a8b5c2"; // Silver Al
+                    ctx.fillRect(240, 160, 15, 100);
+                    ctx.fillText("Aluminium", 225, 150);
+                } else if (absorber === "lead") {
+                    ctx.fillStyle = "#4a4a52"; // Dark grey Lead
+                    ctx.fillRect(230, 160, 30, 100);
+                    ctx.fillText("Lead", 235, 150);
+                }
+            }
+
+            // Draw Visual Distance Indicator
+            ctx.strokeStyle = "#555";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(80, 260);
+            ctx.lineTo(450, 260);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = "#aaa";
+            ctx.textAlign = "center";
+            let distText = dist < 100 ? `${dist} cm` : `${(dist/100).toFixed(2)} m`;
+            ctx.fillText("Distance: " + distText, 265, 275);
+            ctx.textAlign = "left";
+
+            // Spawn Particles
+            let src = getActiveSources();
+            if (src.a && Math.random() < 0.2) particles.push(new Particle('a'));
+            if (src.b && Math.random() < 0.2) particles.push(new Particle('b'));
+            if (src.g && Math.random() < 0.1) particles.push(new Particle('g'));
+
+            // Update & Draw Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update(dist, absorber);
+                particles[i].draw();
+                if (!particles[i].active) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function gameLoop() {
+            calculateCountRate();
+            drawScene();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop(); // Start Simulation Loop
+
+        /* =========================================
+           DATA RECORDING LOGIC
+        ========================================= */
+        function recordData() {
+            let src = getActiveSources();
+            let radStr = [];
+            if(src.a) radStr.push("α");
+            if(src.b) radStr.push("β");
+            if(src.g) radStr.push("γ");
+            if(radStr.length === 0) radStr.push("None");
+
+            let dist = document.getElementById("slider-dist").value;
+            let distStr = dist < 100 ? `${dist} cm` : `${(dist/100).toFixed(2)} m`;
+            
+            let sel = document.getElementById("sel-absorber");
+            let absStr = sel.options[sel.selectedIndex].text;
+            
+            let cpm = Math.round(displayedCpm);
+
+            let tbody = document.getElementById("table-body");
+            let row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${radStr.join(", ")}</td>
+                <td>${distStr}</td>
+                <td>${absStr}</td>
+                <td><strong>${cpm}</strong></td>
+            `;
+            // Insert at the top
+            tbody.insertBefore(row, tbody.firstChild);
+        }
+
+        function clearData() {
+            document.getElementById("table-body").innerHTML = "";
+        }
+
+        /* =========================================
+           QUIZ LOGIC & GOOGLE FORMS INTEGRATION
+        ========================================= */
+        const quizData = [
+            {
+                q: "Which type of radiation is the most strongly ionizing?",
+                options: ["Alpha (α)", "Beta (β)", "Gamma (γ)", "All are equally ionizing"],
+                ans: 0
+            },
+            {
+                q: "Which type of radiation has the greatest penetrating power?",
+                options: ["Alpha (α)", "Beta (β)", "Gamma (γ)", "Neutron radiation"],
+                ans: 2
+            },
+            {
+                q: "What material is minimally required to completely stop Beta (β) particles?",
+                options: ["A sheet of paper", "5 mm of Aluminium", "25 mm of Lead", "Air"],
+                ans: 1
+            },
+            {
+                q: "What is the typical maximum range of Alpha (α) particles in air?",
+                options: ["A few centimeters (e.g. 5 cm)", "About 1 meter", "Several kilometers", "Infinite"],
+                ans: 0
+            },
+            {
+                q: "If an experiment yields 25 c.p.m. when all sources are removed, this is due to:",
+                options: ["Machine error", "Beta particles traveling from space", "Background radiation", "Static electricity"],
+                ans: 2
+            },
+            {
+                q: "Which radiation is an electromagnetic wave rather than a physical particle?",
+                options: ["Alpha (α)", "Beta (β)", "Gamma (γ)", "Positron"],
+                ans: 2
+            },
+            {
+                q: "In this simplified model, why doesn't the Gamma (γ) count rate drop off significantly within 10m of air?",
+                options: ["It has a very long range and is highly penetrating.", "It gets blocked by the air.", "Gamma waves accelerate over distance.", "It is a heavy, slow-moving particle."],
+                ans: 0
+            },
+            {
+                q: "If an alpha and beta source is placed 2 cm from the detector and a thick piece of Paper is inserted, what is blocked?",
+                options: ["Only Alpha", "Only Beta", "Both Alpha and Beta", "Neither"],
+                ans: 0
+            },
+            {
+                q: "What is the physical nature of an Alpha (α) particle?",
+                options: ["A high-speed electron", "A high-frequency photon", "A Helium nucleus (2 protons, 2 neutrons)", "A Hydrogen atom"],
+                ans: 2
+            },
+            {
+                q: "Placing 25 mm of Lead between a Gamma (γ) source and the detector will:",
+                options: ["Completely stop all gamma rays reaching 0 c.p.m.", "Significantly reduce the count rate (by about half), but not stop it entirely.", "Have no effect on gamma rays.", "Increase the count rate due to scattering."],
+                ans: 1
+            }
+        ];
+
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQIndex = 0;
+
+        const modal = document.getElementById("quiz-modal");
+        const introView = document.getElementById("quiz-intro");
+        const questionsView = document.getElementById("quiz-questions");
+        const resultsView = document.getElementById("quiz-results");
+
+        function openQuizIntro() {
+            modal.style.display = "flex";
+            introView.classList.remove("hidden");
+            questionsView.classList.add("hidden");
+            resultsView.classList.add("hidden");
+        }
+
+        function closeQuiz() {
+            modal.style.display = "none";
+        }
+
+        function startQuizQuestions() {
+            S_Class = document.getElementById("input-class").value.trim();
+            S_Number = document.getElementById("input-number").value.trim();
+
+            if (!S_Class || !S_Number) {
+                alert("Please enter both Class and Class Number.");
+                return;
+            }
+
+            S_Mark = 0;
+            currentQIndex = 0;
+            introView.classList.add("hidden");
+            questionsView.classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const qObj = quizData[currentQIndex];
+            document.getElementById("q-current").innerText = currentQIndex + 1;
+            document.getElementById("q-text").innerText = qObj.q;
+            
+            const optionsContainer = document.getElementById("q-options");
+            optionsContainer.innerHTML = "";
+            
+            qObj.options.forEach((opt, index) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt;
+                btn.onclick = () => selectOption(index);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function selectOption(selectedIndex) {
+            if (selectedIndex === quizData[currentQIndex].ans) {
+                S_Mark += 1;
+            }
+            currentQIndex++;
+            
+            if (currentQIndex < quizData.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            questionsView.classList.add("hidden");
+            resultsView.classList.remove("hidden");
+            document.getElementById("score-text").innerText = S_Mark;
+        }
+
+        function retryQuiz() {
+            S_Mark = 0;
+            currentQIndex = 0;
+            resultsView.classList.add("hidden");
+            questionsView.classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function finishQuiz() {
+            // Fill hidden form
+            document.getElementById("form-class").value = S_Class;
+            document.getElementById("form-number").value = S_Number;
+            document.getElementById("form-mark").value = S_Mark;
+            
+            // Submit form to hidden iframe
+            document.getElementById("google-form").submit();
+            
+            alert("Score submitted successfully! You may now close this quiz.");
+            closeQuiz();
+        }
+    </script>
+</body>
+</html>
