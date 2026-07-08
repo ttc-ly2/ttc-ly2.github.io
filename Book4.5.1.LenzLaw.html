@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lenz's Law Simulation (HK S5 Physics)</title>
+    <style>
+        :root {
+            --primary: #0056b3;
+            --bg: #f4f7f6;
+            --panel-bg: #ffffff;
+            --border: #ccc;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h2 {
+            margin: 5px 0 15px 0;
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            width: 1000px;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* Top Row - Controls */
+        .controls-panel {
+            background-color: var(--panel-bg);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column; /* Stacks inputs and buttons */
+            gap: 15px;
+        }
+        .controls-inputs {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .controls-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            color: #444;
+            font-size: 14px;
+        }
+        select, button {
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+            font-size: 14px;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+            min-width: 120px;
+        }
+        button:hover { background-color: #004494; }
+        button.quiz-btn { background-color: #28a745; }
+        button.quiz-btn:hover { background-color: #218838; }
+        button.reset-btn { background-color: #dc3545; }
+        button.reset-btn:hover { background-color: #c82333; }
+
+        /* Bottom Row - Simulation & Graph */
+        .simulation-row {
+            display: flex;
+            gap: 15px;
+            height: 500px;
+        }
+        .column {
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex: 1;
+            padding: 15px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .col-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        canvas {
+            border: 1px solid #eee;
+            border-radius: 4px;
+            background-color: #fafafa;
+            flex-grow: 1;
+        }
+        .readouts {
+            position: absolute;
+            top: 45px;
+            left: 25px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* Interactive Graph Legend HTML */
+        .graph-legend {
+            position: absolute;
+            top: 45px;
+            right: 25px; /* Placed on the right side of whichever column it sits in */
+            background: rgba(255,255,255,0.95);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .graph-legend-title {
+            font-weight: bold;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+            margin-bottom: 2px;
+        }
+        .graph-legend label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            color: #333;
+        }
+        .graph-legend input[type="radio"] {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        .graph-legend label.disabled {
+            color: #aaa;
+            cursor: not-allowed;
+        }
+        .color-box {
+            width: 16px;
+            height: 10px;
+            margin-left: auto;
+            border-radius: 2px;
+            display: inline-block;
+        }
+
+        /* Quiz Modal Overlay */
+        #quiz-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .quiz-content {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .quiz-content h3 { margin-top: 0; color: var(--primary); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input { width: 100%; padding: 8px; box-sizing: border-box; }
+        .question-text { font-size: 16px; font-weight: bold; margin-bottom: 15px; }
+        .option-btn {
+            display: block; width: 100%; text-align: left;
+            margin-bottom: 10px; padding: 10px;
+            background: #f8f9fa; color: #333; border: 1px solid #ccc;
+        }
+        .option-btn:hover { background: #e2e6ea; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <h2>Lenz's Law & Faraday's Law Simulation</h2>
+
+    <div class="container">
+        <!-- TOP ROW: Controls Panel -->
+        <div class="controls-panel">
+            <!-- Row 1: Inputs -->
+            <div class="controls-inputs">
+                <div class="control-group">
+                    <label>Drop Height:</label>
+                    <select id="sel-height">
+                        <option value="low" selected>Low</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Turns (N):</label>
+                    <select id="sel-turns">
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Mag. Strength:</label>
+                    <select id="sel-strength">
+                        <option value="weak" selected>Weak</option>
+                        <option value="strong">Strong</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Pole Down:</label>
+                    <select id="sel-pole">
+                        <option value="N" selected>North (N)</option>
+                        <option value="S">South (S)</option>
+                    </select>
+                </div>
+            </div>
+            <!-- Row 2: Buttons -->
+            <div class="controls-buttons">
+                <button id="btn-start" onclick="toggleSimulation()">Start</button>
+                <button class="reset-btn" onclick="resetSimulation()">Reset Defaults</button>
+                <button class="quiz-btn" onclick="openQuizIntro()">Start a Quiz</button>
+            </div>
+        </div>
+
+        <!-- BOTTOM ROW: Simulation & Graph -->
+        <div class="simulation-row">
+            <!-- Left Column: Simulation -->
+            <div class="column">
+                <div class="col-title">Simulation</div>
+                <div class="readouts">
+                    <div id="readout-v">Velocity (v): 0.00 m/s</div>
+                    <div id="readout-b">Mag. Flux (Φ): 0.00 Wb</div>
+                    <div id="readout-emf">Rel. E.M.F.: 0.00</div>
+                </div>
+
+                <!-- Interactive Graph Legend moved to Simulation column -->
+                <div class="graph-legend">
+                    <div class="graph-legend-title">Observe Peaks:</div>
+                    <label id="lbl-current">
+                        <input type="radio" name="peakSelect" value="0" id="radio-current" checked onchange="drawGraph()">
+                        Current <span class="color-box" style="background:#0056b3;"></span>
+                    </label>
+                    <label id="lbl-prev1" class="disabled">
+                        <input type="radio" name="peakSelect" value="1" id="radio-prev1" disabled onchange="drawGraph()">
+                        Prev 1 <span class="color-box" style="background:#ff9800;"></span>
+                    </label>
+                    <label id="lbl-prev2" class="disabled">
+                        <input type="radio" name="peakSelect" value="2" id="radio-prev2" disabled onchange="drawGraph()">
+                        Prev 2 <span class="color-box" style="background:#9e9e9e;"></span>
+                    </label>
+                </div>
+
+                <canvas id="simCanvas" width="450" height="420"></canvas>
+            </div>
+
+            <!-- Right Column: Graph -->
+            <div class="column">
+                <div class="col-title">Relative E.M.F. vs Time Graph</div>
+                <canvas id="graphCanvas" width="450" height="420"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- QUIZ MODAL -->
+    <div id="quiz-modal">
+        <div class="quiz-content">
+            <div id="quiz-intro">
+                <h3>Physics Simulation Quiz</h3>
+                <div class="form-group">
+                    <label>Class (e.g., 5A):</label>
+                    <input type="text" id="input-class" placeholder="Enter your Class">
+                </div>
+                <div class="form-group">
+                    <label>Class Number:</label>
+                    <input type="number" id="input-number" placeholder="Enter your Class Number">
+                </div>
+                <button onclick="startQuizQuestions()">Start Quiz</button>
+                <button class="reset-btn" onclick="closeQuiz()">Cancel</button>
+            </div>
+
+            <div id="quiz-questions" class="hidden">
+                <h3>Question <span id="q-current">1</span> of 10</h3>
+                <div id="q-text" class="question-text"></div>
+                <div id="q-options"></div>
+            </div>
+
+            <div id="quiz-results" class="hidden">
+                <h3>Quiz Completed!</h3>
+                <p style="font-size: 18px;">Your Score: <strong id="score-text"></strong> / 10</p>
+                <p style="font-size: 14px; color: #555;">Click "Finish Test" to automatically submit your score via Google Forms.</p>
+                <button onclick="retryQuiz()">Retry Test</button>
+                <button class="quiz-btn" onclick="finishQuiz()">Finish Test</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Form and Iframe for Automatic Submission in Background -->
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+    <form id="google-form" action="https://docs.google.com/forms/d/e/1FAIpQLSeXhfVcrIIaYGXHnQA4TtSJgb38WLWMZx7tsjFRSJXNZyFx6g/formResponse" method="POST" target="hidden_iframe" style="display:none;">
+        <input type="hidden" name="entry.753594098" id="form-class">
+        <input type="hidden" name="entry.777103265" id="form-number">
+        <input type="hidden" name="entry.1173990498" id="form-mark">
+    </form>
+
+    <script>
+        /* =========================================
+           PHYSICS SIMULATION & GRAPHING LOGIC
+        ========================================= */
+        const simCanvas = document.getElementById("simCanvas");
+        const simCtx = simCanvas.getContext("2d");
+        const graphCanvas = document.getElementById("graphCanvas");
+        const graphCtx = graphCanvas.getContext("2d");
+
+        // Physics Constants & State
+        let isRunning = false;
+        let animationId;
+        const g = 9.81; 
+        const dt = 0.02; // time step per frame
+        
+        let t = 0;
+        let y = 0;
+        let v = 0;
+        let flux = 0;
+        let emf = 0;
+        
+        // Data structural adjustments to store peaks dynamically for each run
+        let currentRunData = { dataPoints: [], max: 0, min: 0 };
+        let historyRuns = []; // Array to store previous runs
+        
+        // UI inputs
+        const selHeight = document.getElementById("sel-height");
+        const selTurns = document.getElementById("sel-turns");
+        const selStrength = document.getElementById("sel-strength");
+        const selPole = document.getElementById("sel-pole");
+        const btnStart = document.getElementById("btn-start");
+
+        function getParams() {
+            let heightStart = selHeight.value === "low" ? 50 : 0; 
+            let N = parseInt(selTurns.value);
+            let strength = selStrength.value === "strong" ? 2.0 : 1.0;
+            let poleDir = selPole.value === "S" ? -1 : 1; 
+            return { heightStart, N, strength, poleDir };
+        }
+
+        function updateLegendUI() {
+            const r1 = document.getElementById("radio-prev1");
+            const r2 = document.getElementById("radio-prev2");
+            const l1 = document.getElementById("lbl-prev1");
+            const l2 = document.getElementById("lbl-prev2");
+
+            if (historyRuns.length >= 1) {
+                r1.disabled = false;
+                l1.classList.remove("disabled");
+            } else {
+                r1.disabled = true;
+                l1.classList.add("disabled");
+            }
+
+            if (historyRuns.length >= 2) {
+                r2.disabled = false;
+                l2.classList.remove("disabled");
+            } else {
+                r2.disabled = true;
+                l2.classList.add("disabled");
+            }
+        }
+
+        function resetSimulation() {
+            cancelAnimationFrame(animationId);
+            isRunning = false;
+            btnStart.innerText = "Start";
+            
+            selHeight.value = "low";
+            selTurns.value = "50";
+            selStrength.value = "weak";
+            selPole.value = "N";
+
+            // Clear history and current data entirely
+            historyRuns = [];
+            currentRunData = { dataPoints: [], max: 0, min: 0 };
+            document.getElementById("radio-current").checked = true;
+            updateLegendUI();
+
+            let params = getParams();
+            t = 0;
+            y = params.heightStart; 
+            v = 0;
+            flux = 0;
+            emf = 0;
+            
+            drawSim();
+            drawGraph();
+            updateReadouts();
+        }
+
+        function initSim() {
+            // Save current run to history if it has valid data
+            if (currentRunData.dataPoints && currentRunData.dataPoints.length > 5) {
+                historyRuns.unshift(currentRunData); // Add to the front (0 = newest history)
+                if (historyRuns.length > 2) {
+                    historyRuns.pop(); // Keep only 2 history items
+                }
+            }
+
+            let params = getParams();
+            t = 0;
+            y = params.heightStart; 
+            v = 0;
+            flux = 0;
+            emf = 0;
+            
+            // Start fresh current run
+            currentRunData = { dataPoints: [], max: 0, min: 0 };
+            
+            // Always revert legend focus to "Current" when starting a new run
+            document.getElementById("radio-current").checked = true;
+            updateLegendUI();
+            
+            drawSim();
+            drawGraph();
+            updateReadouts();
+        }
+
+        function toggleSimulation() {
+            if (isRunning) {
+                initSim();
+                isRunning = true;
+                btnStart.innerText = "Restart";
+                loop();
+            } else {
+                isRunning = true;
+                btnStart.innerText = "Restart";
+                initSim();
+                loop();
+            }
+        }
+
+        function loop() {
+            if (!isRunning) return;
+
+            let params = getParams();
+            
+            v += g * 5 * dt; 
+            y += v * dt;
+            t += dt;
+
+            const coilY = 250; 
+            const magnetWidth = 20; 
+            let dist = y - coilY;
+            
+            let rawFlux = Math.exp(-(dist * dist) / (2 * magnetWidth * magnetWidth));
+            flux = params.poleDir * params.strength * rawFlux;
+            
+            let dPhi_dy = flux * (-dist / (magnetWidth * magnetWidth));
+            let dPhi_dt = dPhi_dy * v;
+            
+            emf = -params.N * dPhi_dt * 0.007; 
+
+            // Record bounds dynamically in current run
+            if (emf > currentRunData.max) currentRunData.max = emf;
+            if (emf < currentRunData.min) currentRunData.min = emf;
+            currentRunData.dataPoints.push({ time: t, voltage: emf });
+
+            // Stop condition
+            if (y > 450) {
+                emf = 0; 
+                flux = 0;
+                isRunning = false;
+                btnStart.innerText = "Start";
+                updateReadouts();
+                drawSim();
+                drawGraph();
+                return;
+            }
+
+            updateReadouts();
+            drawSim();
+            drawGraph();
+
+            animationId = requestAnimationFrame(loop);
+        }
+
+        function updateReadouts() {
+            document.getElementById("readout-v").innerText = `Velocity (v): ${v.toFixed(2)} m/s`;
+            document.getElementById("readout-b").innerText = `Mag. Flux (Φ): ${(flux*10).toFixed(2)} mWb`;
+            document.getElementById("readout-emf").innerText = `Rel. E.M.F.: ${emf.toFixed(2)}`;
+        }
+
+        function drawSim() {
+            simCtx.clearRect(0, 0, simCanvas.width, simCanvas.height);
+            let params = getParams();
+
+            simCtx.strokeStyle = "#b87333"; 
+            simCtx.lineWidth = 3;
+            let coilRadius = 35; 
+            let coilY = 250;
+            
+            for (let i = 0; i < params.N / 5; i++) { 
+                simCtx.beginPath();
+                simCtx.ellipse(simCanvas.width/2, coilY - 10 + i*2, coilRadius, 15, 0, 0, Math.PI*2);
+                simCtx.stroke();
+            }
+
+            simCtx.fillStyle = "#eee";
+            simCtx.fillRect(simCanvas.width/2 - 50, 360, 100, 50);
+            simCtx.strokeRect(simCanvas.width/2 - 50, 360, 100, 50);
+            simCtx.fillStyle = "#333";
+            simCtx.font = "12px Arial";
+            simCtx.fillText("Voltmeter", simCanvas.width/2 - 25, 405);
+            
+            simCtx.beginPath();
+            simCtx.moveTo(simCanvas.width/2, 390);
+            let angle = Math.max(Math.min(emf * 0.2, Math.PI/3), -Math.PI/3); 
+            simCtx.lineTo(simCanvas.width/2 + 25 * Math.sin(angle), 390 - 25 * Math.cos(angle));
+            simCtx.strokeStyle = "red";
+            simCtx.lineWidth = 2;
+            simCtx.stroke();
+
+            simCtx.strokeStyle = "#333";
+            simCtx.lineWidth = 1;
+            simCtx.beginPath();
+            simCtx.moveTo(simCanvas.width/2 - coilRadius, coilY);
+            simCtx.lineTo(simCanvas.width/2 - 50, 380);
+            simCtx.moveTo(simCanvas.width/2 + coilRadius, coilY);
+            simCtx.lineTo(simCanvas.width/2 + 50, 380);
+            simCtx.stroke();
+
+            let magW = 20;
+            let magH = 40;
+            let magX = simCanvas.width/2 - magW/2;
+            
+            let topColor = params.poleDir === 1 ? "#0055ff" : "#ff0000"; 
+            let topLabel = params.poleDir === 1 ? "S" : "N";
+            let botColor = params.poleDir === 1 ? "#ff0000" : "#0055ff"; 
+            let botLabel = params.poleDir === 1 ? "N" : "S";
+
+            simCtx.fillStyle = topColor;
+            simCtx.fillRect(magX, y - magH, magW, magH/2);
+            simCtx.fillStyle = "white";
+            simCtx.font = "14px Arial";
+            simCtx.fillText(topLabel, magX + 5, y - magH + 15);
+            
+            simCtx.fillStyle = botColor;
+            simCtx.fillRect(magX, y - magH/2, magW, magH/2);
+            simCtx.fillStyle = "white";
+            simCtx.fillText(botLabel, magX + 4, y - 5);
+        }
+
+        function drawGraph() {
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            let centerY = graphCanvas.height / 2;
+            
+            // Draw Axes
+            graphCtx.strokeStyle = "#aaa";
+            graphCtx.lineWidth = 1;
+            graphCtx.beginPath();
+            // X-axis (Time)
+            graphCtx.moveTo(40, centerY);
+            graphCtx.lineTo(graphCanvas.width - 20, centerY);
+            // Y-axis (Relative EMF)
+            graphCtx.moveTo(40, 20);
+            graphCtx.lineTo(40, graphCanvas.height - 20);
+            graphCtx.stroke();
+
+            graphCtx.fillStyle = "#555";
+            graphCtx.font = "12px Arial";
+            graphCtx.fillText("Relative E.M.F.", 10, 15);
+            graphCtx.fillText("Time (t)", graphCanvas.width - 50, centerY + 15);
+
+            let scaleX = (graphCanvas.width - 60) / 4; 
+            let scaleY = 30; 
+
+            // Find which run is actively selected in the legend to display its peaks
+            let viewIndex = parseInt(document.querySelector('input[name="peakSelect"]:checked').value);
+            let targetRun;
+            
+            if (viewIndex === 0) targetRun = currentRunData;
+            else if (viewIndex === 1 && historyRuns.length > 0) targetRun = historyRuns[0];
+            else if (viewIndex === 2 && historyRuns.length > 1) targetRun = historyRuns[1];
+
+            // Draw Target Peaks
+            if (targetRun) {
+                if (targetRun.max > 0.05) {
+                    let py = centerY - (targetRun.max * scaleY);
+                    graphCtx.beginPath();
+                    graphCtx.setLineDash([5, 5]);
+                    graphCtx.moveTo(40, py);
+                    graphCtx.lineTo(graphCanvas.width - 20, py);
+                    graphCtx.strokeStyle = "#28a745"; // Green line for max
+                    graphCtx.stroke();
+                    graphCtx.setLineDash([]);
+                    
+                    graphCtx.fillStyle = "#28a745";
+                    graphCtx.font = "bold 12px Arial";
+                    graphCtx.fillText("Peak: +" + targetRun.max.toFixed(2), graphCanvas.width - 80, py - 5);
+                }
+
+                if (targetRun.min < -0.05) {
+                    let py = centerY - (targetRun.min * scaleY);
+                    graphCtx.beginPath();
+                    graphCtx.setLineDash([5, 5]);
+                    graphCtx.moveTo(40, py);
+                    graphCtx.lineTo(graphCanvas.width - 20, py);
+                    graphCtx.strokeStyle = "#dc3545"; // Red line for min
+                    graphCtx.stroke();
+                    graphCtx.setLineDash([]);
+                    
+                    graphCtx.fillStyle = "#dc3545";
+                    graphCtx.font = "bold 12px Arial";
+                    graphCtx.fillText("Peak: " + targetRun.min.toFixed(2), graphCanvas.width - 80, py + 15);
+                }
+            }
+
+            // Draw History Lines (draw oldest first)
+            for (let h = historyRuns.length - 1; h >= 0; h--) {
+                let pts = historyRuns[h].dataPoints;
+                let isPrev1 = (h === 0); 
+                
+                graphCtx.strokeStyle = isPrev1 ? "#ff9800" : "#9e9e9e"; // Orange for Prev1, Grey for Prev2
+                graphCtx.lineWidth = 1.5;
+                graphCtx.globalAlpha = isPrev1 ? 0.8 : 0.5; 
+                
+                graphCtx.beginPath();
+                for (let i = 0; i < pts.length; i++) {
+                    let ptX = 40 + pts[i].time * scaleX;
+                    let ptY = centerY - (pts[i].voltage * scaleY);
+                    
+                    if (i === 0) graphCtx.moveTo(ptX, ptY);
+                    else graphCtx.lineTo(ptX, ptY);
+                }
+                graphCtx.stroke();
+            }
+            
+            // Draw Current Data
+            graphCtx.globalAlpha = 1.0; // Reset opacity
+            if (currentRunData.dataPoints && currentRunData.dataPoints.length > 0) {
+                graphCtx.strokeStyle = "#0056b3"; // Solid Blue
+                graphCtx.lineWidth = 2.5;
+                graphCtx.beginPath();
+                
+                for (let i = 0; i < currentRunData.dataPoints.length; i++) {
+                    let ptX = 40 + currentRunData.dataPoints[i].time * scaleX;
+                    let ptY = centerY - (currentRunData.dataPoints[i].voltage * scaleY);
+                    
+                    if (i === 0) graphCtx.moveTo(ptX, ptY);
+                    else graphCtx.lineTo(ptX, ptY);
+                }
+                graphCtx.stroke();
+            }
+        }
+
+        // Initialize display on load
+        updateLegendUI();
+        drawSim();
+        drawGraph();
+
+
+        /* =========================================
+           QUIZ LOGIC & GOOGLE FORMS INTEGRATION
+        ========================================= */
+        const quizData = [
+            {
+                q: "What does Lenz's Law state?",
+                options: [
+                    "The induced EMF is proportional to the rate of change of magnetic flux.",
+                    "The direction of an induced current always opposes the change in magnetic flux that causes it.",
+                    "The magnetic field inside a coil is uniform.",
+                    "Voltage is directly proportional to current."
+                ],
+                ans: 1
+            },
+            {
+                q: "On the Voltage-Time graph, why is the second peak (when the magnet exits the coil) larger in magnitude than the first peak?",
+                options: [
+                    "The magnet has gained speed due to gravity, so the rate of change of flux is higher.",
+                    "The south pole is stronger than the north pole.",
+                    "The magnet's strength increases as it falls.",
+                    "The resistance of the coil decreases over time."
+                ],
+                ans: 0
+            },
+            {
+                q: "If you change the number of turns (N) from 50 to 100, what happens to the induced E.M.F.?",
+                options: [
+                    "It becomes half of its original value.",
+                    "It remains exactly the same.",
+                    "It doubles in magnitude.",
+                    "It becomes zero."
+                ],
+                ans: 2
+            },
+            {
+                q: "Which law gives the magnitude of the induced E.M.F.?",
+                options: ["Newton's Law", "Ohm's Law", "Lenz's Law", "Faraday's Law of Induction"],
+                ans: 3
+            },
+            {
+                q: "When the magnet is dropped from a Higher position, how does the V-t graph change compared to the Low position?",
+                options: [
+                    "The peaks become shorter and wider.",
+                    "The peaks become taller and narrower (shorter time duration).",
+                    "Only the first peak gets taller.",
+                    "The graph remains completely unchanged."
+                ],
+                ans: 1
+            },
+            {
+                q: "Why does the induced E.M.F. drop to zero when the magnet is exactly at the center of the coil?",
+                options: [
+                    "The magnetic field of the magnet disappears.",
+                    "The magnetic flux linking the coil is at a maximum, so the rate of change of flux is zero.",
+                    "The velocity of the magnet is zero at the center.",
+                    "The current cancels out the Earth's magnetic field."
+                ],
+                ans: 1
+            },
+            {
+                q: "If you change the magnet from a Weak to a Strong magnet, the peak induced voltage will:",
+                options: ["Increase", "Decrease", "Remain the same", "Flip polarity"],
+                ans: 0
+            },
+            {
+                q: "As the North pole of the magnet enters the coil, the induced current creates a magnetic pole at the top of the coil. What pole is it?",
+                options: ["North pole, to attract the magnet", "South pole, to attract the magnet", "North pole, to repel the magnet", "South pole, to repel the magnet"],
+                ans: 2
+            },
+            {
+                q: "If the magnet is dropped South-pole first instead of North-pole first, what will happen to the V-t graph?",
+                options: [
+                    "The graph will look identical.",
+                    "Both voltage peaks will be positive.",
+                    "The sequence of the peaks will flip (e.g., if negative first, it becomes positive first).",
+                    "There will be no induced E.M.F."
+                ],
+                ans: 2
+            },
+            {
+                q: "The electrical energy generated in the coil during this experiment ultimately comes from:",
+                options: [
+                    "The magnetic energy of the magnet.",
+                    "The thermal energy of the room.",
+                    "The kinetic/potential energy of the falling magnet (Work done against magnetic repulsion/attraction).",
+                    "The copper wire's internal resistance."
+                ],
+                ans: 2
+            }
+        ];
+
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQIndex = 0;
+
+        const modal = document.getElementById("quiz-modal");
+        const introView = document.getElementById("quiz-intro");
+        const questionsView = document.getElementById("quiz-questions");
+        const resultsView = document.getElementById("quiz-results");
+
+        function openQuizIntro() {
+            modal.style.display = "flex";
+            introView.classList.remove("hidden");
+            questionsView.classList.add("hidden");
+            resultsView.classList.add("hidden");
+        }
+
+        function closeQuiz() {
+            modal.style.display = "none";
+        }
+
+        function startQuizQuestions() {
+            S_Class = document.getElementById("input-class").value.trim();
+            S_Number = document.getElementById("input-number").value.trim();
+
+            if (!S_Class || !S_Number) {
+                alert("Please enter both Class and Class Number.");
+                return;
+            }
+
+            S_Mark = 0;
+            currentQIndex = 0;
+            introView.classList.add("hidden");
+            questionsView.classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const qObj = quizData[currentQIndex];
+            document.getElementById("q-current").innerText = currentQIndex + 1;
+            document.getElementById("q-text").innerText = qObj.q;
+            
+            const optionsContainer = document.getElementById("q-options");
+            optionsContainer.innerHTML = "";
+            
+            qObj.options.forEach((opt, index) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt;
+                btn.onclick = () => selectOption(index);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function selectOption(selectedIndex) {
+            if (selectedIndex === quizData[currentQIndex].ans) {
+                S_Mark += 1;
+            }
+            
+            currentQIndex++;
+            
+            if (currentQIndex < quizData.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            questionsView.classList.add("hidden");
+            resultsView.classList.remove("hidden");
+            document.getElementById("score-text").innerText = S_Mark;
+        }
+
+        function retryQuiz() {
+            S_Mark = 0;
+            currentQIndex = 0;
+            resultsView.classList.add("hidden");
+            questionsView.classList.remove("hidden");
+            loadQuestion();
+        }
+
+        function finishQuiz() {
+            document.getElementById("form-class").value = S_Class;
+            document.getElementById("form-number").value = S_Number;
+            document.getElementById("form-mark").value = S_Mark;
+            
+            document.getElementById("google-form").submit();
+            
+            alert("Score submitted successfully! You may now close this quiz.");
+            closeQuiz();
+        }
+    </script>
+</body>
+</html>
