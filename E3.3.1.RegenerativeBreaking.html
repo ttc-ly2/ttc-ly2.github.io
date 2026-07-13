@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regenerative Braking Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- Upper Row (Controls) --- */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+            color: white;
+        }
+        button:hover { filter: brightness(0.9); transform: translateY(-2px); }
+        
+        #btn-start { background-color: #4CAF50; }
+        #btn-brake { background-color: #ff9800; }
+        #btn-stop { background-color: #f44336; }
+        #btn-charge { background-color: #9c27b0; }
+        #btn-quiz { background-color: #2196F3; }
+
+        /* --- Dashboard --- */
+        .dashboard {
+            display: flex;
+            gap: 50px;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            background: #333;
+            color: #0ff;
+            padding: 15px 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            border: 2px solid #111;
+        }
+        .speedometer { color: #0f0; }
+
+        /* --- Lower Row (Simulation Layout) --- */
+        .simulation-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            background: #fff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 1000px;
+        }
+        .col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 1. Battery */
+        .battery-body {
+            width: 80px;
+            height: 120px;
+            border: 4px solid #333;
+            border-radius: 5px;
+            position: relative;
+            background: #eee;
+            display: flex;
+            align-items: flex-end;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        }
+        .battery-top {
+            width: 30px;
+            height: 10px;
+            background: #333;
+            border-radius: 3px 3px 0 0;
+            margin-bottom: -4px;
+        }
+        .battery-fill {
+            width: 100%;
+            height: 80%;
+            background: #4CAF50;
+            transition: background-color 0.5s;
+        }
+        .battery-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            top: 45%;
+            font-weight: bold;
+            color: #000;
+            text-shadow: 1px 1px 2px #fff;
+        }
+
+        /* Circuit & Wires */
+        .wire {
+            height: 14px;
+            background: #ccc;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            border: 1px solid #999;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .arrows {
+            display: flex;
+            white-space: nowrap;
+            font-size: 20px;
+            font-weight: bold;
+            line-height: 12px;
+            letter-spacing: 5px;
+            opacity: 0;
+        }
+        
+        /* Arrow States */
+        .arrows.forward { color: #f44336; opacity: 1; animation: slideRight 1s linear infinite; }
+        .arrows.backward { color: #4CAF50; opacity: 1; animation: slideLeft 1s linear infinite; }
+        .arrows.charge { color: #2196F3; opacity: 1; animation: slideLeft 0.5s linear infinite; }
+
+        @keyframes slideRight { from { transform: translateX(-50px); } to { transform: translateX(50px); } }
+        @keyframes slideLeft { from { transform: translateX(50px); } to { transform: translateX(-50px); } }
+        
+        /* 3. Rail Switch Component */
+        .rail-switch-container {
+            position: relative;
+            width: 120px;
+            height: 104px; /* Exactly matches the height span of the fork wires */
+            display: flex;
+            align-items: center;
+        }
+        .switch-status {
+            position: absolute;
+            top: -45px;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            background: #333;
+            color: #fff;
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+            border: 2px solid #555;
+        }
+        .rail-pivot {
+            width: 18px;
+            height: 18px;
+            background: #444;
+            border: 2px solid #222;
+            border-radius: 50%;
+            position: absolute;
+            left: -5px;
+            z-index: 10;
+        }
+        .rail-arm {
+            width: 101px; /* Diagonal distance to perfectly reach nodes */
+            height: 14px;
+            background: #ccc;
+            border: 1px solid #999;
+            border-radius: 7px;
+            position: absolute;
+            left: 4px; /* Center of pivot */
+            transform-origin: 7px 7px; /* Pivot around the left center point */
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            z-index: 5;
+            box-shadow: 0 4px 4px rgba(0,0,0,0.2);
+        }
+        /* Rotations mapping to the Top (Motor) or Bottom (Generator) */
+        .rail-arm.up { transform: rotate(-26.5deg); }
+        .rail-arm.down { transform: rotate(26.5deg); }
+        .rail-arm.neutral { transform: rotate(0deg); background: #eaeaea; border-style: dashed; box-shadow: none; }
+        
+        .rail-node {
+            width: 16px;
+            height: 16px;
+            background: #999;
+            border: 2px solid #555;
+            border-radius: 50%;
+            position: absolute;
+            right: 0;
+            z-index: 4;
+            box-sizing: border-box;
+        }
+        .rail-node.top-node { top: -2px; }
+        .rail-node.bottom-node { bottom: -2px; }
+
+        /* 4. Split Wire Fork Column */
+        .fork-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 104px; /* 14px wire + 76px gap + 14px wire = 104px total. Aligns perfectly with Drivetrain. */
+        }
+
+        /* 5. Drivetrain (Top-Down Diagram) */
+        .drivetrain {
+            position: relative;
+            background: #eaeaea;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px dashed #bbb;
+            gap: 20px;
+        }
+        .axle {
+            width: 180px;
+            height: 8px;
+            background: #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 2;
+        }
+        .drive-shaft {
+            position: absolute;
+            width: 8px;
+            height: 85%;
+            background: #555;
+            z-index: 1;
+        }
+        .machine {
+            width: 80px;
+            height: 70px;
+            border-radius: 8px;
+            border: 5px solid #333;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #333;
+            z-index: 3;
+            text-align: center;
+            font-size: 13px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: 0.3s;
+        }
+        
+        /* High-Contrast Clear Wheels */
+        .wheel {
+            width: 30px;
+            height: 50px;
+            background: #222;
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.4);
+        }
+        .wheel::after {
+            content: '';
+            position: absolute;
+            top: -50px; left: 0; right: 0; bottom: -50px;
+            background: repeating-linear-gradient(0deg, #111, #111 8px, #999 8px, #999 16px);
+            background-size: 100% 32px;
+            z-index: 4;
+        }
+        .rolling::after {
+            animation: rollTread linear infinite;
+        }
+        @keyframes rollTread {
+            from { transform: translateY(0); }
+            to { transform: translateY(32px); }
+        }
+
+        /* --- Quiz Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .quiz-input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .option-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 10px;
+            background: #f1f1f1;
+            color: #333;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .option-btn:hover { background: #ddd; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Upper Row: Controls -->
+    <div class="controls">
+        <button id="btn-start" onclick="startCar()">Start the Car</button>
+        <button id="btn-brake" onclick="brakeCar()">Slow down / Brake</button>
+        <button id="btn-stop" onclick="stopCar()">Stop</button>
+        <button id="btn-charge" onclick="chargeBattery()">Charge up</button>
+        <button id="btn-quiz" onclick="openQuizSetup()">Start a Quiz</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard">
+        <div class="speedometer">Speed: <span id="speed-display">0</span> km/h</div>
+    </div>
+
+    <!-- Lower Row: Simulation Diagram -->
+    <div class="simulation-container">
+        
+        <!-- 1. Battery -->
+        <div class="col">
+            <div class="battery-top"></div>
+            <div class="battery-body">
+                <div class="battery-fill" id="battery-fill"></div>
+                <div class="battery-text" id="battery-text">80.0%</div>
+            </div>
+            <h3 style="margin-top:10px;">Battery</h3>
+        </div>
+
+        <!-- 2. Main Wire -->
+        <div class="col">
+            <div class="wire" style="width: 80px;">
+                <div class="arrows" id="arr-main">>>>>>>></div>
+            </div>
+        </div>
+
+        <!-- 3. Dynamic Rail Switch -->
+        <div class="col">
+            <div class="rail-switch-container">
+                <div class="switch-status" id="switch-status">Switch:<br>OPEN</div>
+                
+                <div class="rail-pivot"></div>
+                
+                <!-- The Pivoting Mechanical Arm -->
+                <div class="rail-arm neutral" id="rail-arm">
+                    <div class="arrows" id="arr-arm"></div>
+                </div>
+
+                <!-- Connection nodes to the sub-wires -->
+                <div class="rail-node top-node"></div>
+                <div class="rail-node bottom-node"></div>
+            </div>
+        </div>
+
+        <!-- 4. Split Wire Fork -->
+        <div class="col">
+            <div class="fork-container">
+                <div class="wire" style="width: 80px;">
+                    <div class="arrows" id="arr-motor">>>>>>>></div>
+                </div>
+                <div class="wire" style="width: 80px;">
+                    <div class="arrows" id="arr-gen"><<<<<<<</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Drivetrain Layout -->
+        <div class="col drivetrain">
+            <div class="drive-shaft"></div>
+            
+            <div class="axle">
+                <div class="wheel rolling" style="animation-play-state: paused;"></div>
+                <div class="wheel rolling" style="animation-play-state: paused;"></div>
+            </div>
+            
+            <!-- Motor Unit -->
+            <div class="machine" id="motor-display">Motor<br>(Idle)</div>
+            
+            <!-- Generator Unit -->
+            <div class="machine" id="gen-display">Generator<br>(Idle)</div>
+            
+            <div class="axle">
+                <div class="wheel rolling" style="animation-play-state: paused;"></div>
+                <div class="wheel rolling" style="animation-play-state: paused;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Quiz Modal -->
+    <div class="modal-overlay" id="quiz-modal">
+        <div class="modal-content" id="quiz-content">
+            <div id="quiz-setup">
+                <h2>Start Quiz</h2>
+                <label>Class:</label>
+                <input type="text" id="s_class" class="quiz-input" placeholder="e.g., 10A" required>
+                <label>Class Number:</label>
+                <input type="text" id="s_number" class="quiz-input" placeholder="e.g., 15" required>
+                <button onclick="startQuizTest()" style="background:#4CAF50; color:white; padding:10px; border:none; border-radius:5px; cursor:pointer;">Start Quiz</button>
+                <button onclick="closeQuiz()" style="background:#ccc; color:#333; margin-left:10px; padding:10px; border:none; border-radius:5px; cursor:pointer;">Cancel</button>
+            </div>
+
+            <div id="quiz-active" class="hidden">
+                <h3 id="question-text">Question goes here</h3>
+                <div id="options-container"></div>
+                <p style="margin-top:20px; font-size:14px; color:#555;">Question <span id="q-current">1</span> of 10</p>
+            </div>
+
+            <div id="quiz-results" class="hidden">
+                <h2>Quiz Finished!</h2>
+                <p>Your Score: <strong id="score-text">0</strong> / 10</p>
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <button onclick="retryQuiz()" style="background:#ff9800; color:white; padding:10px; border:none; border-radius:5px; cursor:pointer;">Retry Test</button>
+                    <button onclick="finishQuiz()" style="background:#4CAF50; color:white; padding:10px; border:none; border-radius:5px; cursor:pointer;">Finish & Submit</button>
+                </div>
+            </div>
+
+            <div id="quiz-submitting" class="hidden">
+                <h2>Submitting Results...</h2>
+                <p>Sending your data to the server. Please wait...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ===============================
+           SIMULATION LOGIC
+           =============================== */
+        let speed = 0;         // km/h
+        let batteryCharge = 80.0; // Percentage
+        let simState = 'STOPPED'; // START, BRAKE, CRUISE_10, STOPPED, CHARGE
+        
+        // DOM Elements
+        const batteryFill = document.getElementById('battery-fill');
+        const batteryText = document.getElementById('battery-text');
+        const speedDisplay = document.getElementById('speed-display');
+        
+        const switchStatus = document.getElementById('switch-status');
+        const railArm = document.getElementById('rail-arm');
+        
+        const motorDisplay = document.getElementById('motor-display');
+        const genDisplay = document.getElementById('gen-display');
+        
+        const arrMain = document.getElementById('arr-main');
+        const arrArm = document.getElementById('arr-arm');
+        const arrMotor = document.getElementById('arr-motor');
+        const arrGen = document.getElementById('arr-gen');
+        const wheels = document.querySelectorAll('.wheel');
+
+        function updateBatteryUI() {
+            batteryFill.style.height = batteryCharge + '%';
+            batteryText.innerText = batteryCharge.toFixed(1) + '%';
+            
+            if (batteryCharge < 20) batteryFill.style.background = '#f44336';
+            else if (batteryCharge < 50) batteryFill.style.background = '#ff9800';
+            else batteryFill.style.background = '#4CAF50';
+        }
+
+        function updateWheelsUI() {
+            if (speed <= 0) {
+                wheels.forEach(w => w.style.animationPlayState = 'paused');
+            } else {
+                wheels.forEach(w => {
+                    w.style.animationPlayState = 'running';
+                    // Animation duration inversely proportional to speed
+                    let duration = Math.max(0.15, 12 / speed); 
+                    w.style.animationDuration = duration + 's';
+                });
+            }
+        }
+
+        // Main game loop (runs 20 times per second for smooth updates)
+        setInterval(() => {
+            if (simState === 'START') {
+                speed += 0.5;
+                if (speed > 100) speed = 100;
+                batteryCharge -= 0.05;
+                
+            } else if (simState === 'BRAKE') {
+                if (speed > 10) {
+                    speed -= 0.8;
+                    batteryCharge += 0.08;
+                    if (speed <= 10) { speed = 10; setCruiseMode(); }
+                } else if (speed < 10) {
+                    speed += 0.2; 
+                    if(speed >= 10) { speed = 10; setCruiseMode(); }
+                }
+                
+            } else if (simState === 'CRUISE_10') {
+                speed = 10; // Maintains constant speed passively
+                
+            } else if (simState === 'STOPPED') {
+                if (speed > 0) speed -= 1.5; 
+                if (speed <= 0) speed = 0;
+                
+            } else if (simState === 'CHARGE') {
+                if (speed > 0) speed -= 2.0; // Force stop car to charge safely
+                if (speed <= 0) speed = 0;
+                batteryCharge += 0.5; // Rapid plug-in charging
+            }
+
+            // Boundary checks
+            if (batteryCharge >= 100) { 
+                batteryCharge = 100; 
+                if (simState === 'CHARGE') stopCar(); // Automatically stop charging
+            }
+            if (batteryCharge <= 0) { 
+                batteryCharge = 0; 
+                if (simState === 'START') stopCar(); // Out of juice
+            }
+
+            speedDisplay.innerText = Math.round(speed);
+            updateBatteryUI();
+            updateWheelsUI();
+        }, 50);
+
+        function resetDisplays() {
+            motorDisplay.innerHTML = "Motor<br>(Idle)";
+            motorDisplay.style.borderColor = "#333";
+            motorDisplay.style.background = "#fff";
+            
+            genDisplay.innerHTML = "Generator<br>(Idle)";
+            genDisplay.style.borderColor = "#333";
+            genDisplay.style.background = "#fff";
+
+            arrMain.className = "arrows"; arrMain.innerText = "";
+            arrArm.className = "arrows"; arrArm.innerText = "";
+            arrMotor.className = "arrows"; arrMotor.innerText = "";
+            arrGen.className = "arrows"; arrGen.innerText = "";
+            
+            railArm.className = "rail-arm neutral";
+        }
+
+        function startCar() {
+            simState = 'START';
+            resetDisplays();
+            
+            switchStatus.innerHTML = "Switch:<br>MOTOR";
+            motorDisplay.innerHTML = "Motor<br>(Running)";
+            motorDisplay.style.borderColor = "#f44336";
+            motorDisplay.style.background = "#ffcccc";
+            
+            // Swing Arm UP to connect to Motor
+            railArm.className = "rail-arm up";
+            
+            // Route current Battery -> Switch -> Motor
+            arrMain.className = "arrows forward"; arrMain.innerText = ">>>>>>>>";
+            arrArm.className = "arrows forward"; arrArm.innerText = ">>>>>>>>";
+            arrMotor.className = "arrows forward"; arrMotor.innerText = ">>>>>>>>";
+        }
+
+        function brakeCar() {
+            if (speed > 10) {
+                simState = 'BRAKE';
+                resetDisplays();
+                
+                switchStatus.innerHTML = "Switch:<br>REGEN";
+                genDisplay.innerHTML = "Generator<br>(Charging)";
+                genDisplay.style.borderColor = "#4CAF50";
+                genDisplay.style.background = "#ccffcc";
+                
+                // Swing Arm DOWN to connect to Generator
+                railArm.className = "rail-arm down";
+
+                // Route current Generator -> Switch -> Battery
+                arrGen.className = "arrows backward"; arrGen.innerText = "<<<<<<<<";
+                arrArm.className = "arrows backward"; arrArm.innerText = "<<<<<<<<";
+                arrMain.className = "arrows backward"; arrMain.innerText = "<<<<<<<<";
+            } else {
+                setCruiseMode();
+            }
+        }
+
+        function setCruiseMode() {
+            simState = 'CRUISE_10';
+            resetDisplays();
+            switchStatus.innerHTML = "Switch:<br>OPEN";
+            motorDisplay.innerHTML = "Motor<br>(Coasting)";
+        }
+
+        function chargeBattery() {
+            simState = 'CHARGE';
+            resetDisplays();
+            
+            switchStatus.innerHTML = "Switch:<br>PLUGGED IN";
+            railArm.className = "rail-arm neutral"; // Disconnected from wheels
+            
+            // Flow from external plug directly to battery
+            arrMain.className = "arrows charge"; arrMain.innerText = "<<<<<<<<";
+        }
+
+        function stopCar() {
+            simState = 'STOPPED';
+            resetDisplays();
+            switchStatus.innerHTML = "Switch:<br>OPEN";
+        }
+
+        /* ===============================
+           QUIZ LOGIC
+           =============================== */
+        const questions = [
+            { q: "What is the primary function of a regenerative braking system?", options: ["To make the car accelerate faster", "To convert kinetic energy into electrical energy", "To cool down the traditional brake pads", "To increase the weight of the vehicle"], ans: 1 },
+            { q: "Which component is active when the car is slowing down / braking?", options: ["The Motor", "The Generator", "The Headlights", "The external charger"], ans: 1 },
+            { q: "Where does the energy captured during regenerative braking go?", options: ["Into the atmosphere as heat", "To the battery to be stored", "To the car's wheels", "Directly into the traditional brake pads"], ans: 1 },
+            { q: "During acceleration (Start the car), in which direction does the electrical current flow?", options: ["From the Generator to the battery", "From the Battery to the Motor", "It remains in the switch", "Current does not flow"], ans: 1 },
+            { q: "When you press 'Slow down' in this simulation at high speeds, what happens to the battery percentage?", options: ["It decreases rapidly", "It stays exactly the same", "It increases gradually", "It instantly jumps to 100%"], ans: 2 },
+            { q: "What causes the car's wheels to slow down during regenerative braking?", options: ["Friction from the brake pads only", "The resistance from the Generator creating electrical current", "An anchor dropped from the car", "The battery expanding in size"], ans: 1 },
+            { q: "Can regenerative braking capture 100% of the car's kinetic energy?", options: ["Yes, it is perfectly efficient", "No, some energy is always lost (e.g., as heat)", "Yes, but only going uphill", "Yes, but only in cold weather"], ans: 1 },
+            { q: "In this simulation, what happens when the braking speed reaches exactly 10 km/h?", options: ["The car stops instantly", "The switch opens and it cruises at a constant speed", "The battery explodes", "It automatically accelerates back to 100 km/h"], ans: 1 },
+            { q: "What component directs the electrical flow between the correct wire paths?", options: ["The wheels", "The rail switch / controller", "The chassis", "The external charger plug"], ans: 1 },
+            { q: "If the car is completely stopped ('Stop' pressed), what is the internal electrical current doing?", options: ["Flowing to the motor", "Flowing to the battery from generator", "Alternating back and forth", "Not flowing at all (circuit open)"], ans: 3 }
+        ];
+
+        let S_Class = '';
+        let S_Number = '';
+        let S_Mark = 0;
+        let currentQIndex = 0;
+
+        function openQuizSetup() {
+            document.getElementById('quiz-modal').style.display = 'flex';
+            document.getElementById('quiz-setup').classList.remove('hidden');
+            document.getElementById('quiz-active').classList.add('hidden');
+            document.getElementById('quiz-results').classList.add('hidden');
+            document.getElementById('quiz-submitting').classList.add('hidden');
+        }
+
+        function closeQuiz() {
+            document.getElementById('quiz-modal').style.display = 'none';
+        }
+
+        function startQuizTest() {
+            const classVal = document.getElementById('s_class').value.trim();
+            const numVal = document.getElementById('s_number').value.trim();
+            
+            if(!classVal || !numVal) {
+                alert("Please enter both Class and Class Number.");
+                return;
+            }
+
+            S_Class = classVal;
+            S_Number = numVal;
+            S_Mark = 0;
+            currentQIndex = 0;
+
+            document.getElementById('quiz-setup').classList.add('hidden');
+            document.getElementById('quiz-active').classList.remove('hidden');
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const qData = questions[currentQIndex];
+            document.getElementById('question-text').innerText = `${currentQIndex + 1}. ${qData.q}`;
+            document.getElementById('q-current').innerText = currentQIndex + 1;
+
+            const optsContainer = document.getElementById('options-container');
+            optsContainer.innerHTML = ''; 
+
+            qData.options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt;
+                btn.onclick = () => selectAnswer(index);
+                optsContainer.appendChild(btn);
+            });
+        }
+
+        function selectAnswer(selectedIndex) {
+            if (selectedIndex === questions[currentQIndex].ans) {
+                S_Mark += 1;
+            }
+
+            currentQIndex++;
+            if (currentQIndex < questions.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('quiz-active').classList.add('hidden');
+            document.getElementById('quiz-results').classList.remove('hidden');
+            document.getElementById('score-text').innerText = S_Mark;
+        }
+
+        function retryQuiz() {
+            S_Mark = 0;
+            currentQIndex = 0;
+            document.getElementById('quiz-results').classList.add('hidden');
+            document.getElementById('quiz-active').classList.remove('hidden');
+            loadQuestion();
+        }
+
+        function finishQuiz() {
+            document.getElementById('quiz-results').classList.add('hidden');
+            document.getElementById('quiz-submitting').classList.remove('hidden');
+
+            const formUrl = `https://docs.google.com/forms/d/e/1FAIpQLScq9x5x9SpZMoMqusIRA9Pqo9yEEJyuJKvZkiGSWqChZD12Bw/formResponse`;
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", S_Class);
+            formData.append("entry.777103265", S_Number);
+            formData.append("entry.1173990498", S_Mark);
+
+            fetch(formUrl, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            })
+            .then(() => {
+                alert(`Test Finished! Your score of ${S_Mark}/10 has been submitted.`);
+                closeQuiz();
+            })
+            .catch((error) => {
+                console.error("Error submitting form:", error);
+                alert("There was an error submitting your score. Please check your connection.");
+                closeQuiz();
+            });
+        }
+
+        // Initialize UI
+        updateBatteryUI();
+        updateWheelsUI();
+    </script>
+</body>
+</html>
