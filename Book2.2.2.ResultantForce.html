@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultant Force Simulation</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --panel-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        .left-col, .right-col {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+        }
+        .left-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .right-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        .force-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 10px;
+            background: #f1f5f9;
+            border-radius: 6px;
+        }
+        .force-row input[type="number"] {
+            width: 70px;
+            padding: 5px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+        .force-row select {
+            padding: 5px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+        .buttons-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        .btn-calc { background: var(--primary); }
+        .btn-reset { background: #ef4444; }
+        .btn-quiz { background: #10b981; }
+        
+        canvas {
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        #steps-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            display: none;
+            font-size: 0.95em;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+        .modal-content h2 { margin-top: 0; }
+        .quiz-input-group {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .quiz-input-group input {
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+        .option-label {
+            display: block;
+            margin: 8px 0;
+            padding: 10px;
+            background: #f1f5f9;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .option-label:hover { background: #e2e8f0; }
+    </style>
+</head>
+<body>
+
+<h1>Resultant Force Simulation</h1>
+
+<div class="container">
+    <!-- Left Column: Inputs and Steps -->
+    <div class="left-col">
+        <h3>Input Forces</h3>
+        <p style="font-size: 0.85em; color: #64748b; margin-top:-10px;">Select checkbox to add force. Angle is to the horizontal axis.</p>
+        
+        <div id="forces-inputs">
+            <!-- Populated by JS -->
+        </div>
+
+        <div class="buttons-row">
+            <button class="btn-calc" onclick="calculateResultant()">Answer and Steps</button>
+            <button class="btn-reset" onclick="resetSimulation()">Reset</button>
+            <button class="btn-quiz" onclick="openQuizSetup()">Start a Quiz</button>
+        </div>
+
+        <div id="steps-container"></div>
+    </div>
+
+    <!-- Right Column: Visualization -->
+    <div class="right-col">
+        <h3>Force Diagram</h3>
+        <canvas id="canvas" width="500" height="500"></canvas>
+    </div>
+</div>
+
+<!-- Quiz Modal -->
+<div class="modal-overlay" id="quiz-modal">
+    <div class="modal-content" id="quiz-content">
+        <!-- Dynamic Quiz Content -->
+    </div>
+</div>
+
+<!-- Hidden Form to submit to Google Forms silently -->
+<form id="gform" target="hidden_iframe" action="https://docs.google.com/forms/d/e/1FAIpQLSemTsPvlHIQmE8nisr0payLvAtPzOXFt2s7nlwYAP8_8dfhuA/formResponse" method="POST" style="display: none;">
+    <input type="hidden" name="entry.753594098" id="gform_class">
+    <input type="hidden" name="entry.777103265" id="gform_number">
+    <input type="hidden" name="entry.1173990498" id="gform_mark">
+</form>
+<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+
+<script>
+    const colors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899"];
+    let showResultant = false;
+    let resultantData = null;
+
+    // Build Inputs
+    const forcesContainer = document.getElementById('forces-inputs');
+    for (let i = 1; i <= 5; i++) {
+        forcesContainer.innerHTML += `
+            <div class="force-row">
+                <input type="checkbox" id="f${i}_active" onchange="draw()">
+                <label style="color: ${colors[i-1]}; font-weight: bold;">F${i}</label>
+                <input type="number" id="f${i}_mag" placeholder="Mag (N)" min="0" oninput="draw()">
+                <select id="f${i}_dir" onchange="draw()">
+                    <option value="RU">Right & Up</option>
+                    <option value="LU">Left & Up</option>
+                    <option value="LD">Left & Down</option>
+                    <option value="RD">Right & Down</option>
+                </select>
+                <input type="number" id="f${i}_angle" placeholder="Angle (°)" min="0" max="90" oninput="draw()">
+            </div>
+        `;
+    }
+
+    // Canvas drawing
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    function getActiveForces() {
+        let forces = [];
+        for (let i = 1; i <= 5; i++) {
+            if (document.getElementById(`f${i}_active`).checked) {
+                let mag = parseFloat(document.getElementById(`f${i}_mag`).value) || 0;
+                let dir = document.getElementById(`f${i}_dir`).value;
+                let angleDeg = parseFloat(document.getElementById(`f${i}_angle`).value) || 0;
+                
+                // Convert to standard mathematical angle (0-360)
+                let mathAngle = 0;
+                if (dir === 'RU') mathAngle = angleDeg;
+                else if (dir === 'LU') mathAngle = 180 - angleDeg;
+                else if (dir === 'LD') mathAngle = 180 + angleDeg;
+                else if (dir === 'RD') mathAngle = 360 - angleDeg;
+
+                forces.push({ id: i, mag, mathAngle, angleDeg, dir, color: colors[i-1] });
+            }
+        }
+        return forces;
+    }
+
+    function drawArrow(fromX, fromY, toX, toY, color, text) {
+        const headlen = 10;
+        const dx = toX - fromX;
+        const dy = toY - fromY;
+        const angle = Math.atan2(dy, dx);
+        
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+        
+        // Arrowhead
+        ctx.beginPath();
+        ctx.fillStyle = color;
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+        ctx.fill();
+
+        // Label handling
+        ctx.font = "bold 13px Arial";
+        let textWidth = ctx.measureText(text).width;
+        let textHeight = 14; 
+        
+        // Push text away from the center of the canvas based on vector direction
+        let offsetX = (dx >= 0) ? 12 : -(textWidth + 12);
+        let offsetY = (dy >= 0) ? 12 : -(textHeight + 12);
+        
+        let textX = toX + offsetX;
+        let textY = toY + offsetY;
+
+        // Clamp text coordinates so they NEVER leave the canvas boundaries
+        textX = Math.max(5, Math.min(canvas.width - textWidth - 5, textX));
+        textY = Math.max(5, Math.min(canvas.height - textHeight - 5, textY));
+
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        
+        // Draw a subtle semi-transparent background behind text so it's always readable
+        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+        ctx.fillRect(textX - 2, textY - 2, textWidth + 4, textHeight + 4);
+
+        // Draw the actual text
+        ctx.fillStyle = color;
+        ctx.fillText(text, textX, textY);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Axes
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy);
+        ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height);
+        ctx.stroke();
+
+        let forces = getActiveForces();
+        let maxMag = forces.reduce((max, f) => Math.max(max, f.mag), 10);
+        if (showResultant && resultantData) {
+            maxMag = Math.max(maxMag, resultantData.mag);
+        }
+        
+        // Increased margin (90) guarantees plenty of padding for arrows to keep labels inside
+        let scale = (cx - 90) / (maxMag === 0 ? 1 : maxMag);
+
+        // Draw Object (Center point)
+        ctx.fillStyle = "#333";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Draw forces (Updated with angle label)
+        forces.forEach(f => {
+            if(f.mag === 0) return;
+            let rad = f.mathAngle * Math.PI / 180;
+            let toX = cx + (f.mag * scale) * Math.cos(rad);
+            let toY = cy - (f.mag * scale) * Math.sin(rad); // y is inverted in canvas
+            drawArrow(cx, cy, toX, toY, f.color, `F${f.id}: ${f.mag}N (${f.angleDeg}°)`);
+        });
+
+        // Draw Resultant
+        if (showResultant && resultantData && resultantData.mag > 0.01) {
+            let rad = resultantData.mathAngle * Math.PI / 180;
+            let toX = cx + (resultantData.mag * scale) * Math.cos(rad);
+            let toY = cy - (resultantData.mag * scale) * Math.sin(rad);
+            
+            // Flashing logic relies on time
+            let isFlashOn = Math.floor(Date.now() / 300) % 2 === 0;
+            let resColor = isFlashOn ? "#ef4444" : "#fca5a5"; 
+            
+            drawArrow(cx, cy, toX, toY, resColor, `R: ${resultantData.mag.toFixed(2)}N (${resultantData.angleToHoriz.toFixed(1)}°)`);
+        }
+    }
+
+    // Continuously animate for the flashing effect
+    function animate() {
+        if(showResultant) draw();
+        requestAnimationFrame(animate);
+    }
+    animate();
+
+    function calculateResultant() {
+        let forces = getActiveForces();
+        let stepsHtml = `<h4>Calculation Steps:</h4>`;
+        let sumX = 0;
+        let sumY = 0;
+
+        if (forces.length === 0) {
+            stepsHtml += `<p>No forces selected.</p>`;
+        } else {
+            stepsHtml += `<ul>`;
+            forces.forEach(f => {
+                let rad = f.mathAngle * Math.PI / 180;
+                let fx = f.mag * Math.cos(rad);
+                let fy = f.mag * Math.sin(rad);
+                sumX += fx;
+                sumY += fy;
+                stepsHtml += `<li><b>F${f.id}</b>: 
+                    F<sub>x</sub> = ${f.mag} × cos(${f.mathAngle}°) = ${fx.toFixed(2)} N, <br>
+                    F<sub>y</sub> = ${f.mag} × sin(${f.mathAngle}°) = ${fy.toFixed(2)} N
+                </li>`;
+            });
+            stepsHtml += `</ul>`;
+
+            let rMag = Math.sqrt(sumX*sumX + sumY*sumY);
+            let rRad = Math.atan2(sumY, sumX);
+            let rMathAngle = (rRad * 180 / Math.PI + 360) % 360; // Keep between 0-360
+            
+            let angleToHoriz = rMathAngle;
+            let dirText = "";
+            if (rMathAngle <= 90) { dirText = "Above Horizontal, Right"; }
+            else if (rMathAngle <= 180) { dirText = "Above Horizontal, Left"; angleToHoriz = 180 - rMathAngle; }
+            else if (rMathAngle <= 270) { dirText = "Below Horizontal, Left"; angleToHoriz = rMathAngle - 180; }
+            else { dirText = "Below Horizontal, Right"; angleToHoriz = 360 - rMathAngle; }
+
+            stepsHtml += `<hr><p><b>1. Sum of X components:</b> ΣF<sub>x</sub> = ${sumX.toFixed(2)} N</p>`;
+            stepsHtml += `<p><b>2. Sum of Y components:</b> ΣF<sub>y</sub> = ${sumY.toFixed(2)} N</p>`;
+            stepsHtml += `<p><b>3. Resultant Magnitude:</b> R = √(ΣF<sub>x</sub>² + ΣF<sub>y</sub>²) = <b>${rMag.toFixed(2)} N</b></p>`;
+            stepsHtml += `<p><b>4. Resultant Direction:</b> θ = tan⁻¹(|ΣF<sub>y</sub> / ΣF<sub>x</sub>|) = <b>${angleToHoriz.toFixed(2)}°</b> (${dirText})</p>`;
+
+            resultantData = { mag: rMag, mathAngle: rMathAngle, angleToHoriz: angleToHoriz };
+        }
+
+        const stepsDiv = document.getElementById('steps-container');
+        stepsDiv.innerHTML = stepsHtml;
+        stepsDiv.style.display = 'block';
+        showResultant = true;
+        draw();
+    }
+
+    function resetSimulation() {
+        for (let i = 1; i <= 5; i++) {
+            document.getElementById(`f${i}_active`).checked = false;
+            document.getElementById(`f${i}_mag`).value = "";
+            document.getElementById(`f${i}_dir`).value = "RU";
+            document.getElementById(`f${i}_angle`).value = "";
+        }
+        showResultant = false;
+        resultantData = null;
+        document.getElementById('steps-container').style.display = 'none';
+        draw();
+    }
+
+    // ----------------- QUIZ SYSTEM -----------------
+    let sClass = "";
+    let sNumber = "";
+    let sMark = 0;
+    let currentQuestion = 0;
+    
+    const quizData = [
+        { q: "1. The horizontal component of a force F at angle θ to the horizontal is calculated as:", options: ["F × sin(θ)", "F × cos(θ)", "F × tan(θ)", "F / cos(θ)"], ans: 1 },
+        { q: "2. The vertical component of a force F at angle θ to the horizontal is calculated as:", options: ["F × cos(θ)", "F / sin(θ)", "F × sin(θ)", "F × tan(θ)"], ans: 2 },
+        { q: "3. What is the resultant force of 3N East and 4N North?", options: ["1 N", "5 N", "7 N", "12 N"], ans: 1 },
+        { q: "4. A force of 10N acts horizontally to the right. Its vertical component is:", options: ["10 N", "0 N", "5 N", "9.8 N"], ans: 1 },
+        { q: "5. A force of 50N acts at an angle of 30° above the horizontal right. Its horizontal component is approx:", options: ["25 N", "43.3 N", "50 N", "0 N"], ans: 1 },
+        { q: "6. If two forces are in equilibrium (net force is zero), they must be:", options: ["Equal in magnitude and acting in same direction", "Equal in magnitude and acting in opposite directions", "Perpendicular to each other", "Different in magnitude"], ans: 1 },
+        { q: "7. The unit of force is:", options: ["Joule", "Watt", "Newton", "Pascal"], ans: 2 },
+        { q: "8. Force is a vector quantity because it has:", options: ["Magnitude only", "Direction only", "Both magnitude and direction", "Neither"], ans: 2 },
+        { q: "9. To find the resultant of multiple forces mathematically, you first:", options: ["Multiply them all together", "Find the sum of their X and Y components", "Subtract the smallest from the largest", "Take the average"], ans: 1 },
+        { q: "10. The formula for calculating the magnitude of resultant force R from its components Fx and Fy is:", options: ["R = Fx + Fy", "R = √(Fx² + Fy²)", "R = (Fx × Fy)²", "R = Fx - Fy"], ans: 1 }
+    ];
+
+    function openQuizSetup() {
+        const modal = document.getElementById('quiz-modal');
+        const content = document.getElementById('quiz-content');
+        content.innerHTML = `
+            <h2>Quiz Setup</h2>
+            <div class="quiz-input-group">
+                <label>Class:</label>
+                <input type="text" id="s_class" placeholder="e.g. 4A">
+            </div>
+            <div class="quiz-input-group">
+                <label>Class Number:</label>
+                <input type="number" id="s_number" placeholder="e.g. 15">
+            </div>
+            <button class="btn-quiz" onclick="startQuiz()">Start Quiz</button>
+            <button class="btn-reset" onclick="closeQuiz()" style="margin-left:10px;">Cancel</button>
+        `;
+        modal.style.display = 'flex';
+    }
+
+    function closeQuiz() {
+        document.getElementById('quiz-modal').style.display = 'none';
+    }
+
+    function startQuiz() {
+        const cInput = document.getElementById('s_class').value.trim();
+        const nInput = document.getElementById('s_number').value.trim();
+        if (!cInput || !nInput) {
+            alert("Please enter both Class and Class Number.");
+            return;
+        }
+        sClass = cInput;
+        sNumber = nInput;
+        sMark = 0;
+        currentQuestion = 0;
+        renderQuestion();
+    }
+
+    function retryQuiz() {
+        sMark = 0;
+        currentQuestion = 0;
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        const modal = document.getElementById('quiz-content');
+        const q = quizData[currentQuestion];
+        
+        let html = `<h2>Question ${currentQuestion + 1} / 10</h2>`;
+        html += `<p>${q.q}</p>`;
+        
+        q.options.forEach((opt, index) => {
+            html += `<label class="option-label">
+                <input type="radio" name="q_opt" value="${index}"> ${opt}
+            </label>`;
+        });
+
+        html += `<br><button class="btn-calc" onclick="nextQuestion()">`;
+        html += (currentQuestion === 9) ? "Finish Test" : "Next";
+        html += `</button>`;
+        
+        modal.innerHTML = html;
+    }
+
+    function nextQuestion() {
+        const selected = document.querySelector('input[name="q_opt"]:checked');
+        if (!selected) {
+            alert("Please select an answer.");
+            return;
+        }
+
+        if (parseInt(selected.value) === quizData[currentQuestion].ans) {
+            sMark++;
+        }
+
+        currentQuestion++;
+
+        if (currentQuestion < 10) {
+            renderQuestion();
+        } else {
+            showResult();
+        }
+    }
+
+    function showResult() {
+        const modal = document.getElementById('quiz-content');
+        modal.innerHTML = `
+            <h2>Quiz Completed!</h2>
+            <p>Your Mark: <b>${sMark} / 10</b></p>
+            <p>Class: ${sClass} | Number: ${sNumber}</p>
+            <br>
+            <button class="btn-calc" onclick="submitAndFinish()">Finish Test</button>
+            <button class="btn-reset" onclick="retryQuiz()" style="margin-left:10px;">Retry Test</button>
+        `;
+    }
+
+    function submitAndFinish() {
+        document.getElementById('gform_class').value = sClass;
+        document.getElementById('gform_number').value = sNumber;
+        document.getElementById('gform_mark').value = sMark;
+        
+        document.getElementById('gform').submit();
+        
+        const modal = document.getElementById('quiz-content');
+        modal.innerHTML = `
+            <h2>Submitted!</h2>
+            <p>Your mark has been saved.</p>
+            <button class="btn-quiz" onclick="closeQuiz()">Close</button>
+        `;
+    }
+
+    draw();
+</script>
+
+</body>
+</html>
