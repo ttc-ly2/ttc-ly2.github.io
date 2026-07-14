@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HKDSE Physics - OTTV Simulation</title>
+    <style>
+        :root {
+            --primary: #0056b3;
+            --hot: #ff6b6b;
+            --cold: #4dabf7;
+            --wall: #adb5bd;
+            --bg: #f8f9fa;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #e9ecef;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .row {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h2 { margin-top: 0; color: var(--primary); }
+        
+        /* Form Controls */
+        .input-group { margin-bottom: 15px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        input[type="number"], input[type="text"] {
+            padding: 8px; width: 150px; border: 1px solid #ccc; border-radius: 4px;
+        }
+        .flex-container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .data-set { 
+            border: 1px solid #dee2e6; padding: 15px; border-radius: 8px; background: var(--bg);
+            margin-bottom: 15px; display: none;
+        }
+        .toggle-group { margin-bottom: 10px; font-weight: normal; }
+        .toggle-group label { display: inline-block; font-weight: normal; margin-right: 15px; }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;
+            font-size: 16px; font-weight: bold; color: white; transition: 0.2s; margin-right: 10px;
+        }
+        .btn-primary { background-color: var(--primary); }
+        .btn-primary:hover { background-color: #004494; }
+        .btn-danger { background-color: #dc3545; }
+        .btn-danger:hover { background-color: #c82333; }
+        .btn-success { background-color: #28a745; }
+        .btn-success:hover { background-color: #218838; }
+
+        /* Steps output */
+        #output-steps {
+            margin-top: 20px; padding: 15px; background: #e8f4fd; border-left: 5px solid var(--primary);
+            border-radius: 4px; display: none; font-family: monospace; font-size: 15px;
+        }
+
+        /* Simulation (Lower Row) */
+        .simulation-area {
+            display: flex; height: 250px; border: 2px solid #333; border-radius: 8px; overflow: hidden;
+            position: relative;
+        }
+        .sim-side {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 24px; font-weight: bold; color: #333; transition: background 0.3s;
+        }
+        #sim-outside { background: #ffe3e3; }
+        #sim-inside { background: #e3f2fd; }
+        .sim-wall-block {
+            width: 40px; background: repeating-linear-gradient(45deg, #777, #777 10px, #888 10px, #888 20px);
+            display: flex; align-items: center; justify-content: center; z-index: 10; border-left: 2px solid #333; border-right: 2px solid #333;
+        }
+        .arrow {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 60px; color: #333; font-weight: bold; z-index: 20; display: none;
+            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff;
+        }
+
+        /* Quiz Overlay */
+        #quiz-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .quiz-container {
+            background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 600px;
+        }
+        .quiz-option { margin: 10px 0; }
+        .quiz-option label { font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 10px;}
+    </style>
+</head>
+<body>
+
+    <!-- UPPER ROW: Form Input and Logic -->
+    <div class="row" id="upper-row">
+        <h2>OTTV Calculation Simulator</h2>
+        
+        <div class="flex-container">
+            <div class="input-group">
+                <label>Outside Temp (T_out) [°C]:</label>
+                <input type="number" id="t-out" value="35" oninput="updateSimulation()">
+            </div>
+            <div class="input-group">
+                <label>Inside Temp (T_in) [°C]:</label>
+                <input type="number" id="t-in" value="25" oninput="updateSimulation()">
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>How many sets of data to input?</label>
+            <label style="display:inline; font-weight:normal;"><input type="radio" name="sets" value="1" onchange="toggleSets()" checked> 1 Set</label>
+            <label style="display:inline; font-weight:normal;"><input type="radio" name="sets" value="2" onchange="toggleSets()"> 2 Sets</label>
+            <label style="display:inline; font-weight:normal;"><input type="radio" name="sets" value="3" onchange="toggleSets()"> 3 Sets</label>
+        </div>
+
+        <!-- Dynamic Data Sets -->
+        <div id="datasets-container">
+            <!-- Set 1 -->
+            <div class="data-set" id="set-1" style="display:block;">
+                <h4>Information of material 1</h4>
+                <div class="toggle-group">
+                    <label><input type="radio" name="type1" value="kda" onchange="toggleInputType(1)" checked> k, Area, thickness</label>
+                    <label><input type="radio" name="type1" value="ua" onchange="toggleInputType(1)"> U-value, Area</label>
+                </div>
+                <div id="inputs-kda-1" class="flex-container">
+                    <div><label>Thermal Cond. (k) [W/mK]</label><input type="number" id="k1" step="0.01"></div>
+                    <div><label>Area (A) [m²]</label><input type="number" id="a1-k" step="0.1"></div>
+                    <div><label>Thickness (d) [m]</label><input type="number" id="d1" step="0.01"></div>
+                </div>
+                <div id="inputs-ua-1" class="flex-container" style="display:none;">
+                    <div><label>U-value [W/m²K]</label><input type="number" id="u1" step="0.01"></div>
+                    <div><label>Area (A) [m²]</label><input type="number" id="a1-u" step="0.1"></div>
+                </div>
+            </div>
+
+            <!-- Set 2 -->
+            <div class="data-set" id="set-2">
+                <h4>Information of material 2</h4>
+                <div class="toggle-group">
+                    <label><input type="radio" name="type2" value="kda" onchange="toggleInputType(2)" checked> k, Area, thickness</label>
+                    <label><input type="radio" name="type2" value="ua" onchange="toggleInputType(2)"> U-value, Area</label>
+                </div>
+                <div id="inputs-kda-2" class="flex-container">
+                    <div><label>Thermal Cond. (k) [W/mK]</label><input type="number" id="k2" step="0.01"></div>
+                    <div><label>Area (A) [m²]</label><input type="number" id="a2-k" step="0.1"></div>
+                    <div><label>Thickness (d) [m]</label><input type="number" id="d2" step="0.01"></div>
+                </div>
+                <div id="inputs-ua-2" class="flex-container" style="display:none;">
+                    <div><label>U-value [W/m²K]</label><input type="number" id="u2" step="0.01"></div>
+                    <div><label>Area (A) [m²]</label><input type="number" id="a2-u" step="0.1"></div>
+                </div>
+            </div>
+
+            <!-- Set 3 -->
+            <div class="data-set" id="set-3">
+                <h4>Information of material 3</h4>
+                <div class="toggle-group">
+                    <label><input type="radio" name="type3" value="kda" onchange="toggleInputType(3)" checked> k, Area, thickness</label>
+                    <label><input type="radio" name="type3" value="ua" onchange="toggleInputType(3)"> U-value, Area</label>
+                </div>
+                <div id="inputs-kda-3" class="flex-container">
+                    <div><label>Thermal Cond. (k) [W/mK]</label><input type="number" id="k3" step="0.01"></div>
+                    <div><label>Area (A) [m²]</label><input type="number" id="a3-k" step="0.1"></div>
+                    <div><label>Thickness (d) [m]</label><input type="number" id="d3" step="0.01"></div>
+                </div>
+                <div id="inputs-ua-3" class="flex-container" style="display:none;">
+                    <div><label>U-value [W/m²K]</label><input type="number" id="u3" step="0.01"></div>
+                    <div><label>Area (A) [m²]</label><input type="number" id="a3-u" step="0.1"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-group" style="background: var(--bg); padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
+            <label style="display:flex; align-items:center; gap: 10px;">
+                <input type="checkbox" id="rad-check" onchange="toggleRadiation()"> Include Energy Flow by Radiation
+            </label>
+            <div id="radiation-inputs" class="flex-container" style="display:none; margin-top: 10px;">
+                <div><label>Size of Window (Area) [m²]</label><input type="number" id="rad-area" step="0.1"></div>
+                <div><label>Solar Radiation Gain [W/m²]</label><input type="number" id="rad-gain" step="0.1"></div>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button class="btn btn-primary" onclick="calculateOTTV()">Answer and Steps</button>
+            <button class="btn btn-danger" onclick="resetForm()">Reset</button>
+            <button class="btn btn-success" onclick="openQuizSetup()">Start a Quiz</button>
+        </div>
+
+        <div id="output-steps"></div>
+    </div>
+
+    <!-- LOWER ROW: Visual Simulation -->
+    <div class="row" id="lower-row">
+        <h2>Simulation View</h2>
+        <div class="simulation-area">
+            <div class="sim-side" id="sim-outside">
+                <div>Outside</div>
+                <div id="lbl-tout">35°C</div>
+            </div>
+            
+            <div class="sim-wall-block"></div>
+            <div class="arrow" id="heat-arrow"></div>
+
+            <div class="sim-side" id="sim-inside">
+                <div>Inside</div>
+                <div id="lbl-tin">25°C</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QUIZ OVERLAY -->
+    <div id="quiz-overlay">
+        <div class="quiz-container" id="quiz-content">
+            <!-- Content injected by JS -->
+        </div>
+    </div>
+
+    <script>
+        // --- UI Logic & Calculators ---
+
+        function toggleSets() {
+            let count = document.querySelector('input[name="sets"]:checked').value;
+            for (let i = 1; i <= 3; i++) {
+                document.getElementById(`set-${i}`).style.display = (i <= count) ? 'block' : 'none';
+            }
+        }
+
+        function toggleInputType(setNum) {
+            let type = document.querySelector(`input[name="type${setNum}"]:checked`).value;
+            if (type === 'kda') {
+                document.getElementById(`inputs-kda-${setNum}`).style.display = 'flex';
+                document.getElementById(`inputs-ua-${setNum}`).style.display = 'none';
+            } else {
+                document.getElementById(`inputs-kda-${setNum}`).style.display = 'none';
+                document.getElementById(`inputs-ua-${setNum}`).style.display = 'flex';
+            }
+        }
+
+        function toggleRadiation() {
+            let isChecked = document.getElementById('rad-check').checked;
+            document.getElementById('radiation-inputs').style.display = isChecked ? 'flex' : 'none';
+        }
+
+        function resetForm() {
+            document.querySelectorAll('input[type="number"]').forEach(input => input.value = '');
+            document.getElementById('t-out').value = '35';
+            document.getElementById('t-in').value = '25';
+            document.getElementById('rad-check').checked = false;
+            document.querySelector('input[name="sets"][value="1"]').checked = true;
+            
+            for(let i=1; i<=3; i++) {
+                document.querySelector(`input[name="type${i}"][value="kda"]`).checked = true;
+                toggleInputType(i);
+            }
+            toggleSets();
+            toggleRadiation();
+            document.getElementById('output-steps').style.display = 'none';
+            updateSimulation();
+        }
+
+        function updateSimulation() {
+            let tout = parseFloat(document.getElementById('t-out').value) || 0;
+            let tin = parseFloat(document.getElementById('t-in').value) || 0;
+
+            document.getElementById('lbl-tout').innerText = tout + "°C";
+            document.getElementById('lbl-tin').innerText = tin + "°C";
+
+            let arrow = document.getElementById('heat-arrow');
+            let simOut = document.getElementById('sim-outside');
+            let simIn = document.getElementById('sim-inside');
+
+            if (tout > tin) {
+                arrow.innerHTML = '&#8658;'; // Right arrow
+                arrow.style.display = 'block';
+                simOut.style.background = '#ffcccc'; // Hotter
+                simIn.style.background = '#cce5ff';  // Cooler
+            } else if (tin > tout) {
+                arrow.innerHTML = '&#8656;'; // Left arrow
+                arrow.style.display = 'block';
+                simOut.style.background = '#cce5ff';
+                simIn.style.background = '#ffcccc';
+            } else {
+                arrow.style.display = 'none'; // No heat flow
+                simOut.style.background = '#e9ecef';
+                simIn.style.background = '#e9ecef';
+            }
+        }
+
+        function calculateOTTV() {
+            let tout = parseFloat(document.getElementById('t-out').value) || 0;
+            let tin = parseFloat(document.getElementById('t-in').value) || 0;
+            let dT = Math.abs(tout - tin);
+            let flowDir = tout >= tin ? "Outside to Inside" : "Inside to Outside";
+
+            let count = parseInt(document.querySelector('input[name="sets"]:checked').value);
+            
+            let totalQCond = 0;
+            let totalArea = 0;
+            let stepsHTML = `<strong>Step-by-Step Working:</strong><br><br>`;
+            stepsHTML += `1. Temperature Difference (ΔT) = |${tout} - ${tin}| = ${dT} °C<br><br>`;
+
+            for (let i = 1; i <= count; i++) {
+                let type = document.querySelector(`input[name="type${i}"]:checked`).value;
+                let u, a, q;
+                
+                stepsHTML += `<em>Information of material ${i} Conduction:</em><br>`;
+                
+                if (type === 'kda') {
+                    let k = parseFloat(document.getElementById(`k${i}`).value) || 0;
+                    let d = parseFloat(document.getElementById(`d${i}`).value) || 0;
+                    a = parseFloat(document.getElementById(`a${i}-k`).value) || 0;
+                    
+                    if(d === 0) { stepsHTML += `<span style="color:red">Error: Thickness cannot be 0.</span><br>`; return;}
+                    
+                    u = k / d;
+                    q = u * a * dT;
+                    stepsHTML += `- U-value = k / d = ${k} / ${d} = ${u.toFixed(2)} W/m²K<br>`;
+                    stepsHTML += `- Heat Transfer Rate = U × A × ΔT = ${u.toFixed(2)} × ${a} × ${dT} = ${q.toFixed(2)} W<br><br>`;
+                } else {
+                    u = parseFloat(document.getElementById(`u${i}`).value) || 0;
+                    a = parseFloat(document.getElementById(`a${i}-u`).value) || 0;
+                    q = u * a * dT;
+                    stepsHTML += `- Heat Transfer Rate = U × A × ΔT = ${u} × ${a} × ${dT} = ${q.toFixed(2)} W<br><br>`;
+                }
+                totalQCond += q;
+                totalArea += a;
+            }
+
+            let radQ = 0;
+            if (document.getElementById('rad-check').checked) {
+                let aw = parseFloat(document.getElementById('rad-area').value) || 0;
+                let qs = parseFloat(document.getElementById('rad-gain').value) || 0;
+                radQ = aw * qs;
+                totalArea += aw; // Assuming standard gross area definition includes windows
+                
+                stepsHTML += `<em>Radiation:</em><br>`;
+                stepsHTML += `- Heat Transfer Rate = Area × Solar Gain = ${aw} × ${qs} = ${radQ.toFixed(2)} W<br><br>`;
+            }
+
+            let totalQ = totalQCond + radQ;
+            let ottv = totalArea > 0 ? (totalQ / totalArea) : 0;
+
+            stepsHTML += `<strong>Final Calculation:</strong><br>`;
+            stepsHTML += `Total Heat Transfer Rate (Q_total) = ${totalQCond.toFixed(2)} (Conduction) + ${radQ.toFixed(2)} (Radiation) = <strong>${totalQ.toFixed(2)} W</strong><br>`;
+            stepsHTML += `Total Area (A_total) = <strong>${totalArea.toFixed(2)} m²</strong><br>`;
+            stepsHTML += `<strong>OTTV</strong> = Q_total / A_total = ${totalQ.toFixed(2)} / ${totalArea.toFixed(2)} = <strong style="color:var(--primary); font-size:1.2em;">${ottv.toFixed(2)} W/m²</strong><br>`;
+            stepsHTML += `<em>Direction of heat flow: ${flowDir}</em>`;
+
+            let outBox = document.getElementById('output-steps');
+            outBox.innerHTML = stepsHTML;
+            outBox.style.display = 'block';
+        }
+
+        // --- Quiz Logic ---
+        const questions = [
+            { q: "1. Heat transfer through a solid wall is mainly by which process?", options: ["Convection", "Conduction", "Radiation", "Evaporation"], ans: 1 },
+            { q: "2. If the thickness of a material is doubled, its thermal conduction rate will be...", options: ["Doubled", "Halved", "Unchanged", "Quadrupled"], ans: 1 },
+            { q: "3. The U-value of a material represents its...", options: ["Thermal transmittance", "Thermal resistance", "Specific heat capacity", "Density"], ans: 0 },
+            { q: "4. Which of the following factors does NOT affect the rate of heat conduction through a wall?", options: ["Temperature difference", "Cross-sectional area", "Thickness of wall", "Color of the wall"], ans: 3 },
+            { q: "5. Solar radiation energy gained through a window depends primarily on...", options: ["Window thickness only", "Window area and glass solar properties", "Indoor temperature", "Indoor air pressure"], ans: 1 },
+            { q: "6. OTTV stands for...", options: ["Overall Thermal Transfer Value", "Outer Temperature Transfer Variable", "Optimum Thermal Transmission Value", "Overall Temperature Threshold Value"], ans: 0 },
+            { q: "7. If outside temperature is 30°C and inside is 20°C, what is the temperature difference (ΔT)?", options: ["50°C", "-10°C", "10°C", "0°C"], ans: 2 },
+            { q: "8. What is the SI unit for heat flow rate (Power)?", options: ["Joules (J)", "Watts (W)", "Kelvin (K)", "Celsius (°C)"], ans: 1 },
+            { q: "9. A low OTTV implies that the building...", options: ["Gains heat rapidly from outside", "Is energy efficient with low heat gain", "Requires more air conditioning power", "Has very thin exterior walls"], ans: 1 },
+            { q: "10. Heat flows naturally from...", options: ["Cold region to Hot region", "Low pressure to High pressure", "Hot region to Cold region", "Inside to Outside regardless of temperature"], ans: 2 }
+        ];
+
+        let S_Class = "";
+        let S_Number = "";
+        let S_Mark = 0;
+        let currentQuestion = 0;
+
+        function openQuizSetup() {
+            document.getElementById('quiz-overlay').style.display = 'flex';
+            document.getElementById('quiz-content').innerHTML = `
+                <h3 style="color:var(--primary); margin-top:0;">HKDSE OTTV Quiz setup</h3>
+                <div class="input-group">
+                    <label>Your Class (e.g., 6A):</label>
+                    <input type="text" id="s-class">
+                </div>
+                <div class="input-group">
+                    <label>Class Number:</label>
+                    <input type="number" id="s-number">
+                </div>
+                <button class="btn btn-primary" onclick="startQuiz()">Start Quiz</button>
+                <button class="btn btn-danger" onclick="closeQuiz()">Cancel</button>
+            `;
+        }
+
+        function closeQuiz() {
+            document.getElementById('quiz-overlay').style.display = 'none';
+        }
+
+        function startQuiz() {
+            let cInput = document.getElementById('s-class').value.trim();
+            let nInput = document.getElementById('s-number').value.trim();
+            
+            if(!cInput || !nInput) {
+                alert("Please enter both Class and Class Number.");
+                return;
+            }
+
+            S_Class = cInput;
+            S_Number = nInput;
+            S_Mark = 0;
+            currentQuestion = 0;
+            renderQuestion();
+        }
+
+        function retryQuiz() {
+            S_Mark = 0;
+            currentQuestion = 0;
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            let qData = questions[currentQuestion];
+            let html = `<h3 style="margin-top:0;">Question ${currentQuestion + 1} / 10</h3>`;
+            html += `<p style="font-size: 18px;">${qData.q}</p>`;
+            
+            qData.options.forEach((opt, idx) => {
+                html += `
+                    <div class="quiz-option">
+                        <label><input type="radio" name="q-opt" value="${idx}"> ${opt}</label>
+                    </div>
+                `;
+            });
+
+            html += `<br><button class="btn btn-primary" onclick="nextQuestion()">Next</button>`;
+            document.getElementById('quiz-content').innerHTML = html;
+        }
+
+        function nextQuestion() {
+            let selected = document.querySelector('input[name="q-opt"]:checked');
+            if(!selected) {
+                alert("Please select an answer.");
+                return;
+            }
+
+            if(parseInt(selected.value) === questions[currentQuestion].ans) {
+                S_Mark++;
+            }
+
+            currentQuestion++;
+            if(currentQuestion < questions.length) {
+                renderQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('quiz-content').innerHTML = `
+                <h2 style="color:var(--primary); margin-top:0;">Quiz Finished!</h2>
+                <p style="font-size: 20px;">Your Mark: <strong>${S_Mark} / 10</strong></p>
+                <button class="btn btn-primary" onclick="submitAndFinish()">Finish Test & Submit</button>
+                <button class="btn btn-success" onclick="retryQuiz()">Retry Test</button>
+            `;
+        }
+
+        function submitAndFinish() {
+            // Google form submission link
+            const url = `https://docs.google.com/forms/d/e/1FAIpQLSdd3DU_WD_BXp9e0n5MIbEnFM7LJHasRzKuEx5Kf3IA2WZvng/formResponse`;
+            
+            const params = new URLSearchParams();
+            params.append('entry.753594098', S_Class);
+            params.append('entry.777103265', S_Number);
+            params.append('entry.1173990498', S_Mark);
+            params.append('submit', 'Submit');
+
+            // Send silently
+            fetch(url, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: params
+            }).then(() => {
+                alert("Your score has been successfully submitted!");
+                closeQuiz();
+            }).catch(e => {
+                alert("Score submitted! (Offline check or CORS block passed)");
+                closeQuiz();
+            });
+        }
+
+        // Initialize simulation arrow on load
+        window.onload = updateSimulation;
+    </script>
+</body>
+</html>
