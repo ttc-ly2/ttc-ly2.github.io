@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electromagnetic Induction Simulation</title>
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 1250px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        /* Upper Row: Controls */
+        .controls-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 20px;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f9f9f9;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: #fff;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn.quiz { background: #28a745; }
+        .btn.quiz:hover { background: #218838; }
+        
+        /* Lower Row: Canvas and Graph */
+        .display-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .col {
+            flex: 1;
+            min-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            background: #fafafa;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+        }
+        .chart-container {
+            width: 100%;
+            height: 350px;
+        }
+
+        /* Quiz Modal */
+        #quiz-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .quiz-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .quiz-option {
+            display: block;
+            width: 100%;
+            text-align: left;
+            margin: 10px 0;
+            padding: 10px;
+            background: #f1f1f1;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .quiz-option:hover { background: #e2e2e2; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; }
+        .input-group input { width: 100%; padding: 8px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- UPPER ROW: CONTROLS -->
+    <div class="controls-row">
+        <div class="control-group">
+            <label><input type="radio" name="objectType" value="coil" checked> Coil</label>
+            <label><input type="radio" name="objectType" value="plate"> Metal Plate</label>
+        </div>
+
+        <div class="control-group">
+            <label>Area: <span id="aVal">20</span> cm²</label>
+            <input type="range" id="aSlider" min="5" max="50" value="20" step="1">
+        </div>
+
+        <div class="control-group">
+            <label>B-Field: <span id="bVal">+3.0</span> mT</label>
+            <input type="range" id="bSlider" min="-10" max="10" value="3" step="0.1">
+        </div>
+
+        <div class="control-group">
+            <label>Speed: <span id="vVal">1.0</span> m/s</label>
+            <input type="range" id="vSlider" min="0.1" max="5" value="1" step="0.1">
+        </div>
+
+        <div class="control-group">
+            <button class="btn" id="btnStart">Start</button>
+            <button class="btn" id="btnPause">Pause</button>
+            <button class="btn" id="btnRetry">Retry</button>
+            <button class="btn" id="btnReset">Reset</button>
+        </div>
+
+        <button class="btn quiz" id="btnQuiz">Start a Quiz</button>
+    </div>
+
+    <!-- LOWER ROW: SIMULATION AND GRAPH -->
+    <div class="display-row">
+        <!-- Left Column: Simulation Diagram -->
+        <div class="col">
+            <h3>Simulation Diagram</h3>
+            <canvas id="simCanvas" width="550" height="350"></canvas>
+            <p style="font-size: 0.9em; color: #666;">Blue region = Magnetic Field. Red arrows = Induced Current.</p>
+        </div>
+
+        <!-- Right Column: Graph -->
+        <div class="col">
+            <h3>Current vs. Time Graph</h3>
+            <div class="chart-container">
+                <canvas id="graphCanvas"></canvas>
+            </div>
+            <p style="font-size: 0.9em; color: #666;">Click legends to show/hide specific retry graphs. CW is positive.</p>
+        </div>
+    </div>
+</div>
+
+<!-- QUIZ MODAL -->
+<div id="quiz-modal">
+    <div class="quiz-content" id="quiz-container">
+        <!-- Content injected via JS -->
+    </div>
+</div>
+
+<!-- HIDDEN FORM FOR GOOGLE SHEETS SUBMISSION -->
+<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+<form id="gForm" action="https://docs.google.com/forms/d/e/1FAIpQLSdyFLLUsJ9dJSjVtRWfMCsS-D9o0oMUfw6HNqMYMSrDuDZjGg/formResponse" method="POST" target="hidden_iframe" style="display:none;">
+    <input type="text" name="entry.753594098" id="entry_class">
+    <input type="text" name="entry.777103265" id="entry_number">
+    <input type="text" name="entry.1173990498" id="entry_mark">
+</form>
+
+<script>
+    /* ========================================================
+       SIMULATION & GRAPH LOGIC
+       ======================================================== */
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const aSlider = document.getElementById('aSlider');
+    const bSlider = document.getElementById('bSlider');
+    const vSlider = document.getElementById('vSlider');
+    const aVal = document.getElementById('aVal');
+    const bVal = document.getElementById('bVal');
+    const vVal = document.getElementById('vVal');
+    
+    // State Flags & Physics Variables
+    let isStarted = false; 
+    let isMoving = false;  
+    
+    let time = 0;
+    let lastTime = 0;
+    let lastChartUpdate = 0;
+    
+    let simB = 3.0; 
+    let simArea = 20.0;
+    let lastFlux = 0;
+    let displayCurrent = 0; 
+    
+    const field = { x: 200, w: 200, y: 0, h: 350 };
+    const obj = { x: 20, y: 125, w: 100, h: 100 };
+    const pxPerMeter = 50; 
+    
+    // Graph Config (Chart.js)
+    const graphCtx = document.getElementById('graphCanvas').getContext('2d');
+    const colors = ['#007bff', '#dc3545', '#28a745', '#fd7e14', '#6f42c1'];
+    let datasetIndex = 0;
+    
+    const chart = new Chart(graphCtx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Run 1', data: [], borderColor: colors[0], backgroundColor: colors[0],
+                showLine: true, borderWidth: 2, pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            scales: {
+                // Using suggestedMax enables auto-scaling dynamically when data exceeds standard bounds
+                x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Time (s)' }, min: 0, suggestedMax: 12 },
+                // Set smaller initial scale so variations are visible, but allow it to stretch if current is very high
+                y: { title: { display: true, text: 'Current Magnitude' }, suggestedMin: -10, suggestedMax: 10 }
+            }
+        }
+    });
+
+    // Handle UI updates & sizing
+    function updateObjSize(areaVal) {
+        let side = 100 * Math.sqrt(areaVal / 20); // 20cm^2 scales to 100x100px base
+        obj.w = side;
+        obj.h = side;
+        obj.y = (canvas.height - obj.h) / 2; 
+    }
+
+    aSlider.oninput = () => {
+        aVal.innerText = aSlider.value;
+        // If simulation hasn't started, sync immediately to avoid a spike frame
+        if (!isStarted) {
+            simArea = parseFloat(aSlider.value);
+            updateObjSize(simArea);
+            let overlap_w = Math.max(0, Math.min(obj.x + obj.w, field.x + field.w) - Math.max(obj.x, field.x));
+            lastFlux = simB * (overlap_w * obj.h);
+            drawSim(0);
+        }
+    };
+
+    bSlider.oninput = () => {
+        let val = parseFloat(bSlider.value);
+        bVal.innerText = (val > 0 ? "+" : "") + val.toFixed(1);
+        if (!isStarted) {
+            simB = val;
+            let overlap_w = Math.max(0, Math.min(obj.x + obj.w, field.x + field.w) - Math.max(obj.x, field.x));
+            lastFlux = simB * (overlap_w * obj.h);
+            drawSim(0);
+        }
+    };
+    
+    vSlider.oninput = () => vVal.innerText = parseFloat(vSlider.value).toFixed(1);
+
+    // Core Reset function
+    function resetObj() {
+        simArea = parseFloat(aSlider.value);
+        updateObjSize(simArea);
+        obj.x = 20;
+        time = 0;
+        lastChartUpdate = 0;
+        isStarted = false;
+        isMoving = false;
+        displayCurrent = 0;
+        simB = parseFloat(bSlider.value);
+        
+        let overlap_w = Math.max(0, Math.min(obj.x + obj.w, field.x + field.w) - Math.max(obj.x, field.x));
+        lastFlux = simB * (overlap_w * obj.h);
+    }
+
+    document.getElementById('btnStart').onclick = () => {
+        if (!isStarted && obj.x < canvas.width) {
+            isStarted = true;
+            isMoving = true;
+            lastTime = performance.now();
+            requestAnimationFrame(animate);
+        } else if (obj.x < canvas.width) {
+            isMoving = true; 
+            lastTime = performance.now(); 
+        }
+    };
+    
+    document.getElementById('btnPause').onclick = () => { isMoving = false; };
+    
+    document.getElementById('btnRetry').onclick = () => {
+        resetObj();
+        datasetIndex++;
+        chart.data.datasets.push({
+            label: 'Run ' + (datasetIndex + 1), data: [], borderColor: colors[datasetIndex % colors.length],
+            backgroundColor: colors[datasetIndex % colors.length], showLine: true, borderWidth: 2, pointRadius: 0
+        });
+        chart.update();
+        drawSim(0);
+    };
+
+    document.getElementById('btnReset').onclick = () => {
+        resetObj();
+        datasetIndex = 0;
+        chart.data.datasets = [{
+            label: 'Run 1', data: [], borderColor: colors[0], backgroundColor: colors[0],
+            showLine: true, borderWidth: 2, pointRadius: 0
+        }];
+        chart.update();
+        drawSim(0);
+    };
+
+    function drawArrow(ctx, fromx, fromy, tox, toy) {
+        const headlen = 12; 
+        const dx = tox - fromx;
+        const dy = toy - fromy;
+        const angle = Math.atan2(dy, dx);
+        
+        ctx.beginPath();
+        ctx.moveTo(fromx, fromy);
+        ctx.lineTo(tox, toy);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(tox, toy);
+        ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 7), toy - headlen * Math.sin(angle - Math.PI / 7));
+        ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 7), toy - headlen * Math.sin(angle + Math.PI / 7));
+        ctx.lineTo(tox, toy);
+        ctx.fill();
+    }
+
+    function drawSim(current) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        let displayB = isStarted ? simB : parseFloat(bSlider.value);
+        let isCoil = document.querySelector('input[name="objectType"]:checked').value === 'coil';
+        
+        // 1. Draw Magnetic Field Region
+        ctx.fillStyle = 'rgba(0, 123, 255, 0.1)';
+        ctx.fillRect(field.x, field.y, field.w, field.h);
+        
+        if (Math.abs(displayB) > 0.1) {
+            let symbol = displayB > 0 ? '×' : '•';
+            ctx.globalAlpha = Math.min(Math.abs(displayB) / 10 + 0.2, 1);
+            ctx.fillStyle = '#007bff';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (let i = field.x + 20; i < field.x + field.w; i += 40) {
+                for (let j = 30; j < canvas.height; j += 40) {
+                    ctx.fillText(symbol, i, j);
+                }
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        // 2. Draw Object (Coil or Plate)
+        ctx.lineWidth = 4;
+        if (isCoil) {
+            ctx.strokeStyle = '#8B4513';
+            ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+        } else {
+            ctx.fillStyle = '#B0C4DE';
+            ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+            ctx.strokeStyle = '#778899';
+            ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+        }
+
+        // 3. Draw Current Indicators (Clear Arrows) mapped to physical reality
+        if (Math.abs(current) > 0.5) {
+            ctx.strokeStyle = 'red';
+            ctx.fillStyle = 'red';
+            ctx.lineWidth = 4;
+
+            let isCW = current > 0;
+            let midX = obj.x + obj.w / 2;
+            let midY = obj.y + obj.h / 2;
+            let m = Math.min(25, obj.w / 3); 
+            
+            if (isCoil) {
+                if (isCW) {
+                    drawArrow(ctx, midX - m, obj.y, midX + m, obj.y); // Top: point right
+                    drawArrow(ctx, obj.x + obj.w, midY - m, obj.x + obj.w, midY + m); // Right: point down
+                    drawArrow(ctx, midX + m, obj.y + obj.h, midX - m, obj.y + obj.h); // Bottom: point left
+                    drawArrow(ctx, obj.x, midY + m, obj.x, midY - m); // Left: point up
+                } else {
+                    drawArrow(ctx, midX + m, obj.y, midX - m, obj.y); // Top: point left
+                    drawArrow(ctx, obj.x + obj.w, midY + m, obj.x + obj.w, midY - m); // Right: point up
+                    drawArrow(ctx, midX - m, obj.y + obj.h, midX + m, obj.y + obj.h); // Bottom: point right
+                    drawArrow(ctx, obj.x, midY - m, obj.x, midY + m); // Left: point down
+                }
+            } else {
+                let cx;
+                let overlap_x = Math.max(obj.x, field.x);
+                let overlap_x_end = Math.min(obj.x + obj.w, field.x + field.w);
+                let overlap_w = overlap_x_end - overlap_x;
+                
+                if (overlap_w > 0 && overlap_w < obj.w - 1) { 
+                    if (obj.x < field.x) cx = field.x;
+                    else cx = field.x + field.w;
+                } else {
+                    cx = midX;
+                }
+                
+                ctx.beginPath();
+                ctx.arc(cx, midY, 18, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                if (isCW) drawArrow(ctx, cx - 8, midY - 18, cx + 8, midY - 18);
+                else drawArrow(ctx, cx + 8, midY - 18, cx - 8, midY - 18);
+            }
+        }
+    }
+
+    function animate() {
+        if (isStarted) {
+            let now = performance.now();
+            let dt = (now - lastTime) / 1000;
+            if (dt > 0.1) dt = 0.1; 
+            lastTime = now;
+            time += dt;
+
+            // 1. Move object if unpaused
+            if (isMoving) {
+                let V = parseFloat(vSlider.value);
+                obj.x += V * pxPerMeter * dt;
+                
+                // Stop the time and movement entirely once the object is completely off-screen
+                if (obj.x > canvas.width) {
+                    isMoving = false;
+                    isStarted = false; // Stops chart from growing infinitely
+                    chart.update(); // Final render
+                }
+            }
+
+            // 2. Smoothly adjust true simulated variables to match target sliders
+            let targetB = parseFloat(bSlider.value);
+            let bSmoothFactor = 15 * dt; 
+            if(bSmoothFactor > 1) bSmoothFactor = 1;
+            simB += (targetB - simB) * bSmoothFactor;
+
+            let targetArea = parseFloat(aSlider.value);
+            let aSmoothFactor = 15 * dt;
+            if(aSmoothFactor > 1) aSmoothFactor = 1;
+            simArea += (targetArea - simArea) * aSmoothFactor;
+            updateObjSize(simArea);
+
+            // 3. True Physical Flux & Induction Calculation (Faraday's Law)
+            let overlap_x = Math.max(obj.x, field.x);
+            let overlap_x_end = Math.min(obj.x + obj.w, field.x + field.w);
+            let overlap_w = Math.max(0, overlap_x_end - overlap_x);
+            
+            let currentFlux = simB * (overlap_w * obj.h); 
+            let dPhi = currentFlux - lastFlux; 
+            
+            let rawCurrent = 0;
+            if (dt > 0) {
+                rawCurrent = - (dPhi / dt) / 5000; 
+            }
+            
+            // 4. Smooth graph output 
+            displayCurrent += (rawCurrent - displayCurrent) * (20 * dt);
+            if (Math.abs(displayCurrent) < 0.1) displayCurrent = 0;
+            
+            lastFlux = currentFlux;
+
+            // Update Graph every 0.05 seconds
+            if (time - lastChartUpdate > 0.05) {
+                chart.data.datasets[datasetIndex].data.push({ x: time, y: displayCurrent });
+                chart.update('none');
+                lastChartUpdate = time;
+            }
+            
+            drawSim(displayCurrent);
+            
+            // Loop if we haven't reached the edge of the canvas
+            if (isStarted) {
+                requestAnimationFrame(animate);
+            }
+        }
+    }
+
+    // Initialize Canvas on Load
+    resetObj();
+    drawSim(0);
+
+
+    /* ========================================================
+       QUIZ & GOOGLE FORM LOGIC 
+       ======================================================== */
+    const quizQuestions = [
+        { q: "What primarily causes the induced current in this simulation?", options: ["The presence of a static magnetic field", "The moving coil causing a change in magnetic flux", "Heat generated by friction", "The initial kinetic energy"], ans: 1 },
+        { q: "According to Lenz's Law, the direction of the induced current...", options: ["Opposes the change in magnetic flux producing it", "Is always clockwise", "Is always counter-clockwise", "Enhances the change in magnetic flux"], ans: 0 },
+        { q: "If the coil enters a magnetic field directed INTO the page (+), the induced current is:", options: ["Clockwise", "Counter-clockwise", "Zero", "Alternating"], ans: 1 },
+        { q: "What happens to the induced current when the coil is ENTIRELY inside the uniform magnetic field?", options: ["It reaches maximum value", "It reverses direction", "It drops to zero", "It fluctuates heavily"], ans: 2 },
+        { q: "When a solid metal plate enters the magnetic field, what do we call the swirling induced currents?", options: ["Alternating currents", "Direct currents", "Displacement currents", "Eddy currents"], ans: 3 },
+        { q: "How does increasing the speed of the coil affect the induced current while entering the field?", options: ["Increases the magnitude", "Decreases the magnitude", "Has no effect", "Reverses the direction"], ans: 0 },
+        { q: "If the magnetic field strength (B) is decreased, the magnitude of the induced current will:", options: ["Increase", "Decrease", "Remain the same", "Become infinite"], ans: 1 },
+        { q: "If you pause the coil completely while it is halfway into the magnetic field, what is the induced current?", options: ["Maximum", "Zero", "Half its maximum value", "Constant but non-zero"], ans: 1 },
+        { q: "If clockwise is positive, LEAVING a magnetic field that points INTO the page (+) produces:", options: ["A positive (clockwise) current", "A negative (counter-clockwise) current", "Zero current", "An alternating current"], ans: 0 },
+        { q: "Reversing the direction of the magnetic field (from into the page to out of the page) will:", options: ["Stop the induced current", "Have no effect", "Reverse the direction of the induced current", "Cause the coil to stop moving"], ans: 2 }
+    ];
+
+    const quizModal = document.getElementById('quiz-modal');
+    const quizContainer = document.getElementById('quiz-container');
+    let S_Class = "";
+    let S_Number = "";
+    let S_Mark = 0;
+    let currentQ = 0;
+
+    document.getElementById('btnQuiz').onclick = () => {
+        S_Class = ""; S_Number = ""; S_Mark = 0; currentQ = 0;
+        showLogin();
+        quizModal.style.display = 'flex';
+    };
+
+    function showLogin() {
+        quizContainer.innerHTML = `
+            <h2>Simulation Quiz</h2>
+            <p>Please enter your details to begin.</p>
+            <div class="input-group">
+                <label>Class:</label>
+                <input type="text" id="inClass" placeholder="e.g. 5A">
+            </div>
+            <div class="input-group">
+                <label>Class Number:</label>
+                <input type="number" id="inNum" placeholder="e.g. 12">
+            </div>
+            <button class="btn quiz" onclick="startQuiz()">Start Quiz</button>
+            <button class="btn" style="background:#dc3545; margin-left:10px;" onclick="closeQuiz()">Cancel</button>
+        `;
+    }
+
+    window.startQuiz = function() {
+        const c = document.getElementById('inClass').value.trim();
+        const n = document.getElementById('inNum').value.trim();
+        if (!c || !n) return alert("Please enter both Class and Class Number.");
+        S_Class = c;
+        S_Number = n;
+        S_Mark = 0;
+        currentQ = 0;
+        showQuestion();
+    };
+
+    window.retryQuiz = function() {
+        S_Mark = 0;
+        currentQ = 0;
+        showQuestion();
+    }
+
+    function showQuestion() {
+        if (currentQ >= quizQuestions.length) {
+            showResult();
+            return;
+        }
+        let qData = quizQuestions[currentQ];
+        let html = `<h3>Question ${currentQ + 1} of ${quizQuestions.length}</h3>
+                    <p style="font-size:1.1em;">${qData.q}</p>`;
+        
+        qData.options.forEach((opt, index) => {
+            html += `<button class="quiz-option" onclick="answerQuestion(${index})">${String.fromCharCode(65 + index)}. ${opt}</button>`;
+        });
+        
+        quizContainer.innerHTML = html;
+    }
+
+    window.answerQuestion = function(selectedIdx) {
+        if (selectedIdx === quizQuestions[currentQ].ans) {
+            S_Mark++;
+        }
+        currentQ++;
+        showQuestion();
+    };
+
+    function showResult() {
+        quizContainer.innerHTML = `
+            <h2>Quiz Finished!</h2>
+            <p>Name: <strong>${S_Class} - ${S_Number}</strong></p>
+            <h1 style="color:#28a745; text-align:center;">Score: ${S_Mark} / 10</h1>
+            <div style="text-align:center; margin-top:20px;">
+                <button class="btn" onclick="retryQuiz()">Retry Quiz</button>
+                <button class="btn quiz" onclick="finishTest()">Finish Test</button>
+            </div>
+        `;
+    }
+
+    window.finishTest = function() {
+        document.getElementById('entry_class').value = S_Class;
+        document.getElementById('entry_number').value = S_Number;
+        document.getElementById('entry_mark').value = S_Mark;
+        
+        document.getElementById('gForm').submit();
+        
+        quizContainer.innerHTML = `
+            <h2>Submitting...</h2>
+            <p>Your results have been sent successfully.</p>
+            <div style="text-align:center; margin-top:20px;">
+                <button class="btn" onclick="closeQuiz()">Close</button>
+            </div>
+        `;
+    };
+
+    window.closeQuiz = function() {
+        quizModal.style.display = 'none';
+    };
+</script>
+</body>
+</html>
