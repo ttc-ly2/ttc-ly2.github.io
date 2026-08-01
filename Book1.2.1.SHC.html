@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Specific Heat Capacity Simulation</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --hot: #ef4444;
+            --cold: #3b82f6;
+            --heater: #f59e0b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            max-width: 1200px;
+            gap: 20px;
+        }
+
+        .column {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .left-col {
+            flex: 1;
+            min-width: 350px;
+        }
+
+        .right-col {
+            flex: 1.5;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 {
+            margin-top: 0;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .hot-sec { border-left: 4px solid var(--hot); }
+        .heater-sec { border-left: 4px solid var(--heater); }
+        .cold-sec { border-left: 4px solid var(--cold); }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        input[type="number"], select, input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .value-display {
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: background 0.2s;
+            flex: 1;
+        }
+
+        .btn-calc { background-color: var(--primary); }
+        .btn-calc:hover { background-color: var(--primary-hover); }
+        .btn-reset { background-color: #64748b; }
+        .btn-reset:hover { background-color: #475569; }
+        .btn-quiz { background-color: #10b981; }
+        .btn-quiz:hover { background-color: #059669; }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Right Column Output Styling */
+        #output-area {
+            line-height: 1.6;
+            font-size: 1.1em;
+        }
+
+        .step-box {
+            background-color: #f1f5f9;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-family: monospace;
+            font-size: 1em;
+            white-space: pre-wrap;
+        }
+
+        /* Quiz Styling */
+        .quiz-question {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .quiz-options label {
+            display: block;
+            padding: 10px;
+            background: #f1f5f9;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: normal;
+        }
+
+        .quiz-options label:hover {
+            background: #e2e8f0;
+        }
+
+        .quiz-nav {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- LEFT COLUMN: Inputs -->
+    <div class="column left-col">
+        <h2>Simulation Settings</h2>
+        
+        <label>Method of Energy Gain:</label>
+        <select id="energy-method" onchange="toggleMethod()">
+            <option value="hot_object">Hot Object</option>
+            <option value="heater">Heater</option>
+        </select>
+
+        <!-- Hot Object Section -->
+        <div id="hot-object-group" class="section hot-sec">
+            <h3>Hot Object</h3>
+            <label>Mass: <span class="value-display" id="hot-mass-val">1.0</span> kg</label>
+            <input type="range" id="hot-mass" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateVal('hot-mass', 'hot-mass-val')">
+
+            <label>Specific Heat Capacity (J kg⁻¹ K⁻¹):</label>
+            <input type="number" id="hot-shc" value="4200">
+
+            <label>Temperature (°C):</label>
+            <input type="number" id="hot-temp" value="100">
+
+            <label>Heat Loss to Surroundings (J):</label>
+            <input type="number" id="hot-loss" value="0">
+        </div>
+
+        <!-- Heater Section -->
+        <div id="heater-group" class="section heater-sec hidden">
+            <h3>Heater</h3>
+            <label>Power: <span class="value-display" id="heater-power-val">500</span> W</label>
+            <input type="range" id="heater-power" min="100" max="1000" step="10" value="500" oninput="updateVal('heater-power', 'heater-power-val')">
+
+            <label>Time: <span class="value-display" id="heater-time-val">500</span> s</label>
+            <input type="range" id="heater-time" min="100" max="2000" step="10" value="500" oninput="updateVal('heater-time', 'heater-time-val')">
+
+            <label>Heat Loss Type:</label>
+            <select id="heater-loss-type">
+                <option value="actual">Actual Amount (J)</option>
+                <option value="percentage">Percentage Loss (%)</option>
+            </select>
+            <label>Heat Loss Value:</label>
+            <input type="number" id="heater-loss-val" value="0">
+        </div>
+
+        <!-- Cold Object Section -->
+        <div class="section cold-sec">
+            <h3>Cold Object</h3>
+            <label>Mass: <span class="value-display" id="cold-mass-val">1.0</span> kg</label>
+            <input type="range" id="cold-mass" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateVal('cold-mass', 'cold-mass-val')">
+
+            <label>Specific Heat Capacity (J kg⁻¹ K⁻¹):</label>
+            <input type="number" id="cold-shc" value="4200">
+
+            <label>Temperature (°C):</label>
+            <input type="number" id="cold-temp" value="0">
+        </div>
+
+        <div class="button-group">
+            <button class="btn-calc" onclick="calculate()">Show Answer & Steps</button>
+            <button class="btn-reset" onclick="resetAll()">Reset</button>
+        </div>
+        <div class="button-group">
+            <button class="btn-quiz" onclick="startQuizFlow()">Start a Quiz</button>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Output & Quiz -->
+    <div class="column right-col">
+        <!-- Display area for calculations -->
+        <div id="calculation-view">
+            <h2>Results & Calculation Steps</h2>
+            <div id="output-area">
+                <p style="color: #64748b;">Adjust settings on the left and click "Show Answer & Steps" to see the calculation.</p>
+            </div>
+        </div>
+
+        <!-- Display area for Quiz -->
+        <div id="quiz-view" class="hidden">
+            <h2>Knowledge Quiz</h2>
+            
+            <!-- Quiz Login -->
+            <div id="quiz-login">
+                <p>Please enter your details to begin the 10-question multiple-choice quiz.</p>
+                <label>Class:</label>
+                <input type="text" id="student-class" placeholder="e.g. 4A">
+                <label>Class Number:</label>
+                <input type="number" id="student-number" placeholder="e.g. 15">
+                <div class="button-group">
+                    <button class="btn-quiz" onclick="beginQuiz()">Begin Quiz</button>
+                    <button class="btn-reset" onclick="exitQuiz()">Back to Simulation</button>
+                </div>
+            </div>
+
+            <!-- Quiz Questions Container -->
+            <div id="quiz-questions" class="hidden">
+                <p>Question <span id="q-current">1</span> of 10</p>
+                <div id="q-text" class="quiz-question"></div>
+                <div id="q-options" class="quiz-options"></div>
+                <div class="quiz-nav">
+                    <button class="btn-calc" onclick="nextQuestion()">Next</button>
+                </div>
+            </div>
+
+            <!-- Quiz Results Container -->
+            <div id="quiz-results" class="hidden">
+                <h3>Quiz Completed!</h3>
+                <p>Your Score: <strong style="font-size: 1.5em; color: var(--primary);" id="quiz-score-display"></strong></p>
+                <div class="button-group">
+                    <button class="btn-reset" onclick="beginQuiz()">Retry Test</button>
+                    <button class="btn-calc" onclick="finishTest()">Finish Test & Submit</button>
+                </div>
+                <p id="submit-status" style="margin-top:15px; color: green; font-weight: bold;"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ==============================
+       SIMULATION LOGIC
+    ============================== */
+    function updateVal(sliderId, displayId) {
+        let val = parseFloat(document.getElementById(sliderId).value).toFixed(1);
+        if(sliderId.includes('power') || sliderId.includes('time')) {
+            val = parseInt(document.getElementById(sliderId).value);
+        }
+        document.getElementById(displayId).textContent = val;
+    }
+
+    function toggleMethod() {
+        const method = document.getElementById("energy-method").value;
+        if (method === "hot_object") {
+            document.getElementById("hot-object-group").classList.remove("hidden");
+            document.getElementById("heater-group").classList.add("hidden");
+        } else {
+            document.getElementById("hot-object-group").classList.add("hidden");
+            document.getElementById("heater-group").classList.remove("hidden");
+        }
+    }
+
+    function resetAll() {
+        document.getElementById("energy-method").value = "hot_object";
+        document.getElementById("hot-mass").value = "1.0";
+        document.getElementById("hot-shc").value = "4200";
+        document.getElementById("hot-temp").value = "100";
+        document.getElementById("hot-loss").value = "0";
+        
+        document.getElementById("heater-power").value = "500";
+        document.getElementById("heater-time").value = "500";
+        document.getElementById("heater-loss-type").value = "actual";
+        document.getElementById("heater-loss-val").value = "0";
+
+        document.getElementById("cold-mass").value = "1.0";
+        document.getElementById("cold-shc").value = "4200";
+        document.getElementById("cold-temp").value = "0";
+
+        // Update displays
+        ['hot-mass', 'cold-mass', 'heater-power', 'heater-time'].forEach(id => {
+            updateVal(id, id + '-val');
+        });
+
+        toggleMethod();
+        document.getElementById("output-area").innerHTML = '<p style="color: #64748b;">Adjust settings on the left and click "Show Answer & Steps" to see the calculation.</p>';
+        exitQuiz();
+    }
+
+    function calculate() {
+        exitQuiz(); // Ensure we are in calculation view
+        const method = document.getElementById("energy-method").value;
+        const out = document.getElementById("output-area");
+        
+        // Cold object variables
+        const m_c = parseFloat(document.getElementById("cold-mass").value);
+        const c_c = parseFloat(document.getElementById("cold-shc").value);
+        const T_c = parseFloat(document.getElementById("cold-temp").value);
+
+        let steps = "";
+        let T_f = 0;
+
+        if (method === "hot_object") {
+            const m_h = parseFloat(document.getElementById("hot-mass").value);
+            const c_h = parseFloat(document.getElementById("hot-shc").value);
+            const T_h = parseFloat(document.getElementById("hot-temp").value);
+            const loss = parseFloat(document.getElementById("hot-loss").value) || 0;
+
+            if (T_h <= T_c) {
+                out.innerHTML = `<p style="color:red;">Error: Hot object temperature must be greater than cold object temperature.</p>`;
+                return;
+            }
+
+            // Energy balance: m_h * c_h * (T_h - T_f) - Loss = m_c * c_c * (T_f - T_c)
+            const E_available = m_h * c_h * (T_h - T_c);
+            if (loss > E_available) {
+                out.innerHTML = `<p style="color:red;">Error: Heat loss (${loss} J) is greater than the total available thermal energy difference. The mixture cannot reach equilibrium above the cold temperature.</p>`;
+                return;
+            }
+
+            // Solving for T_f:
+            // m_h*c_h*T_h - m_h*c_h*T_f - loss = m_c*c_c*T_f - m_c*c_c*T_c
+            // m_h*c_h*T_h + m_c*c_c*T_c - loss = T_f(m_h*c_h + m_c*c_c)
+            T_f = (m_h * c_h * T_h + m_c * c_c * T_c - loss) / (m_h * c_h + m_c * c_c);
+
+            steps = `<b>1. Identify Given Values:</b>
+Hot Object: m₁ = ${m_h} kg, c₁ = ${c_h} J/kg/K, T₁ = ${T_h} °C
+Cold Object: m₂ = ${m_c} kg, c₂ = ${c_c} J/kg/K, T₂ = ${T_c} °C
+Heat Loss: Q_loss = ${loss} J
+
+<b>2. State the Principle of Conservation of Energy:</b>
+Energy lost by hot object - Heat loss = Energy gained by cold object
+m₁c₁(T₁ - T_final) - Q_loss = m₂c₂(T_final - T₂)
+
+<b>3. Substitute Values:</b>
+(${m_h})(${c_h})(${T_h} - T_final) - ${loss} = (${m_c})(${c_c})(T_final - ${T_c})
+${m_h * c_h}(${T_h} - T_final) - ${loss} = ${m_c * c_c}(T_final - ${T_c})
+${m_h * c_h * T_h} - ${m_h * c_h}T_final - ${loss} = ${m_c * c_c}T_final - ${m_c * c_c * T_c}
+
+<b>4. Solve for T_final:</b>
+${m_h * c_h * T_h - loss + m_c * c_c * T_c} = ${m_h * c_h + m_c * c_c} T_final
+T_final = ${T_f.toFixed(2)} °C`;
+
+        } else {
+            // Heater logic
+            const P = parseFloat(document.getElementById("heater-power").value);
+            const t = parseFloat(document.getElementById("heater-time").value);
+            const lossType = document.getElementById("heater-loss-type").value;
+            let lossVal = parseFloat(document.getElementById("heater-loss-val").value) || 0;
+            
+            const totalEnergy = P * t;
+            let lossJ = 0;
+
+            if (lossType === "percentage") {
+                lossJ = totalEnergy * (lossVal / 100);
+            } else {
+                lossJ = lossVal;
+            }
+
+            const netEnergy = totalEnergy - lossJ;
+
+            if (netEnergy < 0) {
+                out.innerHTML = `<p style="color:red;">Error: Heat loss is greater than the total energy supplied by the heater.</p>`;
+                return;
+            }
+
+            // Energy balance: E_net = m_c * c_c * (T_f - T_c)
+            T_f = T_c + (netEnergy / (m_c * c_c));
+
+            steps = `<b>1. Identify Given Values:</b>
+Heater: P = ${P} W, t = ${t} s
+Cold Object: m = ${m_c} kg, c = ${c_c} J/kg/K, Initial Temp = ${T_c} °C
+Loss Input = ${lossVal} ${lossType === 'percentage' ? '%' : 'J'}
+
+<b>2. Calculate Total Energy Supplied:</b>
+E_total = P × t
+E_total = ${P} × ${t} = ${totalEnergy} J
+
+<b>3. Calculate Net Energy to Water (Subtracting Loss):</b>
+Heat Loss = ${lossJ} J
+E_net = ${totalEnergy} - ${lossJ} = ${netEnergy} J
+
+<b>4. Equate Net Energy to Energy Gained by Object:</b>
+E_net = mc(T_final - T_initial)
+${netEnergy} = (${m_c})(${c_c})(T_final - ${T_c})
+${netEnergy} = ${m_c * c_c}(T_final - ${T_c})
+
+<b>5. Solve for T_final:</b>
+T_final - ${T_c} = ${netEnergy / (m_c * c_c)}
+T_final = ${T_f.toFixed(2)} °C`;
+        }
+
+        out.innerHTML = `
+            <div style="font-size: 1.3em; margin-bottom: 15px;">
+                Final Temperature: <strong>${T_f.toFixed(2)} °C</strong>
+            </div>
+            <h4>Step-by-Step Calculation:</h4>
+            <div class="step-box">${steps}</div>
+        `;
+    }
+
+    /* ==============================
+       QUIZ LOGIC
+    ============================== */
+    let S_Class = "";
+    let S_Number = "";
+    let S_Mark = 0;
+    let currentQuestionIndex = 0;
+    let userAnswers = [];
+
+    const quizData = [
+        {
+            q: "Which formula correctly relates energy (E), mass (m), specific heat capacity (c), and temperature change (ΔT)?",
+            options: ["E = m/cΔT", "E = mc/ΔT", "E = mcΔT", "E = mΔT/c"],
+            ans: 2
+        },
+        {
+            q: "What is the standard SI unit for specific heat capacity?",
+            options: ["J kg⁻¹", "J °C⁻¹", "W kg⁻¹ K⁻¹", "J kg⁻¹ K⁻¹"],
+            ans: 3
+        },
+        {
+            q: "If an object has a high specific heat capacity, it means...",
+            options: ["It heats up very quickly.", "It requires a lot of energy to raise its temperature.", "It cannot absorb heat.", "It is a good conductor of electricity."],
+            ans: 1
+        },
+        {
+            q: "When a hot object and cold object are mixed in a perfectly insulated container, which principle applies?",
+            options: ["Conservation of Mass", "Conservation of Energy", "Newton's Cooling Law", "Thermal Expansion"],
+            ans: 1
+        },
+        {
+            q: "How much energy is supplied by a 500W heater in 100 seconds?",
+            options: ["5 J", "500 J", "50000 J", "500000 J"],
+            ans: 2
+        },
+        {
+            q: "1 kg of water (c = 4200 J/kg/K) at 100°C is mixed with 1 kg of water at 0°C. Assuming no heat loss, what is the final temperature?",
+            options: ["0 °C", "50 °C", "100 °C", "25 °C"],
+            ans: 1
+        },
+        {
+            q: "In an experiment, if heat is lost to the surroundings while a heater is heating a liquid, the calculated specific heat capacity will be...",
+            options: ["Lower than the true value", "Higher than the true value", "Equal to the true value", "Zero"],
+            ans: 1
+        },
+        {
+            q: "Why is water commonly used as a coolant in car engines?",
+            options: ["It is cheap.", "It is transparent.", "It has a high specific heat capacity.", "It is a liquid at room temperature."],
+            ans: 2
+        },
+        {
+            q: "Thermal equilibrium is reached when two mixed objects...",
+            options: ["Have the same mass", "Have the same specific heat capacity", "Have the same thermal energy", "Reach the same temperature"],
+            ans: 3
+        },
+        {
+            q: "If a 1000W heater operates for 10 seconds, but 20% of the heat is lost, how much energy is actually absorbed by the liquid?",
+            options: ["2000 J", "8000 J", "10000 J", "12000 J"],
+            ans: 1
+        }
+    ];
+
+    function startQuizFlow() {
+        document.getElementById("calculation-view").classList.add("hidden");
+        document.getElementById("quiz-view").classList.remove("hidden");
+        
+        document.getElementById("quiz-login").classList.remove("hidden");
+        document.getElementById("quiz-questions").classList.add("hidden");
+        document.getElementById("quiz-results").classList.add("hidden");
+        document.getElementById("submit-status").textContent = "";
+    }
+
+    function exitQuiz() {
+        document.getElementById("quiz-view").classList.add("hidden");
+        document.getElementById("calculation-view").classList.remove("hidden");
+    }
+
+    function beginQuiz() {
+        S_Class = document.getElementById("student-class").value.trim();
+        S_Number = document.getElementById("student-number").value.trim();
+
+        if (!S_Class || !S_Number) {
+            alert("Please enter both Class and Class Number to start.");
+            return;
+        }
+
+        S_Mark = 0;
+        currentQuestionIndex = 0;
+        userAnswers = [];
+        document.getElementById("submit-status").textContent = "";
+
+        document.getElementById("quiz-login").classList.add("hidden");
+        document.getElementById("quiz-results").classList.add("hidden");
+        document.getElementById("quiz-questions").classList.remove("hidden");
+
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        const qData = quizData[currentQuestionIndex];
+        document.getElementById("q-current").textContent = currentQuestionIndex + 1;
+        document.getElementById("q-text").textContent = qData.q;
+        
+        const optionsDiv = document.getElementById("q-options");
+        optionsDiv.innerHTML = "";
+
+        qData.options.forEach((opt, idx) => {
+            const label = document.createElement("label");
+            const radio = document.createElement("input");
+            radio.type = "radio";
+            radio.name = "quiz-option";
+            radio.value = idx;
+            label.appendChild(radio);
+            label.appendChild(document.createTextNode(" " + opt));
+            optionsDiv.appendChild(label);
+        });
+    }
+
+    function nextQuestion() {
+        const selected = document.querySelector('input[name="quiz-option"]:checked');
+        if (!selected) {
+            alert("Please select an answer.");
+            return;
+        }
+
+        const answerIndex = parseInt(selected.value);
+        if (answerIndex === quizData[currentQuestionIndex].ans) {
+            S_Mark += 10; // 10 points per question = 100 max mark
+        }
+
+        currentQuestionIndex++;
+
+        if (currentQuestionIndex < quizData.length) {
+            renderQuestion();
+        } else {
+            showResults();
+        }
+    }
+
+    function showResults() {
+        document.getElementById("quiz-questions").classList.add("hidden");
+        document.getElementById("quiz-results").classList.remove("hidden");
+        document.getElementById("quiz-score-display").textContent = S_Mark + " / 100";
+    }
+
+    function finishTest() {
+        document.getElementById("submit-status").textContent = "Submitting your score...";
+        
+        // Google Forms URL (Note: changed viewform to formResponse for direct submission)
+        const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfTQjgrEdnBXjsj9g20kEIK_FVWPdWZZSlWMqsoX-eWEHfM9w/formResponse";
+        
+        const formData = new URLSearchParams();
+        formData.append("entry.753594098", S_Class);
+        formData.append("entry.777103265", S_Number);
+        formData.append("entry.1173990498", S_Mark);
+
+        // Submit form in background using no-cors to bypass cross-origin restrictions
+        fetch(formUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: formData
+        }).then(() => {
+            document.getElementById("submit-status").textContent = "Score submitted successfully! You may now return to the simulation.";
+        }).catch(err => {
+            console.error(err);
+            document.getElementById("submit-status").style.color = "red";
+            document.getElementById("submit-status").textContent = "There was an error submitting the score. Please check your internet connection.";
+        });
+    }
+</script>
+
+</body>
+</html>
