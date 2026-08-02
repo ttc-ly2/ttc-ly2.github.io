@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Longitudinal Wave Simulation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-top: 0;
+        }
+        /* Layout Rows */
+        .row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .top-row {
+            background: #ffffff;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .bottom-row {
+            align-items: stretch;
+        }
+        /* Controls */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            margin-right: 20px;
+            margin-bottom: 10px;
+            min-width: 140px;
+        }
+        .control-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #444;
+            font-size: 14px;
+        }
+        .info-label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #0056b3;
+            background: #e9ecef;
+            padding: 8px;
+            border-radius: 4px;
+            margin-right: 15px;
+            margin-bottom: 10px;
+        }
+        .btn {
+            padding: 8px 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: background 0.2s;
+            height: 36px;
+        }
+        .btn-start { background: #28a745; }
+        .btn-start:hover { background: #218838; }
+        .btn-pause { background: #ffc107; color: #333; }
+        .btn-pause:hover { background: #e0a800; }
+        .btn-reset { background: #dc3545; }
+        .btn-reset:hover { background: #c82333; }
+        .btn-quiz { background: #17a2b8; margin-left: auto; }
+        .btn-quiz:hover { background: #138496; }
+
+        /* Canvas Columns */
+        .col {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fafafa;
+            width: 100%;
+            height: 300px;
+        }
+        .canvas-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+            width: 100%;
+            text-align: center;
+        }
+        .graph-note {
+            position: absolute;
+            top: 45px;
+            left: 25px;
+            font-size: 11px;
+            color: #666;
+            background: rgba(255,255,255,0.8);
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        /* Quiz Modal */
+        #quizModal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0; top: 0; 
+            width: 100%; height: 100%; 
+            background-color: rgba(0,0,0,0.6);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal-content h2, .modal-content h3 { margin-top: 0; }
+        .modal-content input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0 20px 0;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .quiz-option {
+            background: #e9ecef;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .quiz-option:hover { background: #ced4da; }
+    </style>
+</head>
+<body>
+
+    <h1>Longitudinal Wave Simulation</h1>
+
+    <!-- Upper Row: Controls -->
+    <div class="row top-row">
+        <div class="control-group">
+            <label>Amplitude: <span id="ampVal">1.5</span> cm</label>
+            <input type="range" id="amp" min="0.1" max="4" value="1.5" step="0.1">
+        </div>
+        <div class="control-group">
+            <label>Speed: <span id="speedVal">10</span> cm/s</label>
+            <input type="range" id="speed" min="5" max="25" value="10" step="0.5">
+        </div>
+        <div class="control-group">
+            <label>Frequency: <span id="freqVal">1</span> Hz</label>
+            <input type="range" id="freq" min="0.1" max="5" value="1" step="0.1">
+        </div>
+        <div class="control-group">
+            <label>Medium Length: <span id="lenVal">40</span> cm</label>
+            <input type="range" id="stringLen" min="10" max="40" value="40" step="1">
+        </div>
+        
+        <div class="info-label" id="waveLenDisplay">Wavelength: 10.00 cm</div>
+        <div class="info-label" id="distanceDisplay" style="color: #6f42c1;">Equilibrium Dist P-Q: 10.00 cm</div>
+        
+        <button class="btn btn-start" id="btnStart">Start</button>
+        <button class="btn btn-pause" id="btnPause">Pause / Resume</button>
+        <button class="btn btn-reset" id="btnReset">Reset</button>
+        <button class="btn btn-quiz" id="btnQuiz">Start a Quiz</button>
+    </div>
+
+    <!-- Lower Row: Simulation and Graphs -->
+    <div class="row bottom-row">
+        <div class="col left-col">
+            <div class="canvas-title">Experiment Simulation (Drag points P and Q)</div>
+            <canvas id="simCanvas" width="600" height="300"></canvas>
+        </div>
+        <div class="col right-col">
+            <div class="canvas-title">Displacement - Time Graph</div>
+            <div class="graph-note">
+                <strong>Y-Axis:</strong><br>
+                +ve = Displaced Right &rarr;<br>
+                -ve = Displaced Left &larr;
+            </div>
+            <canvas id="graphCanvas" width="600" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- Quiz Modal Container -->
+    <div id="quizModal">
+        <div class="modal-content" id="quizContent"></div>
+    </div>
+
+    <script>
+        /* ================================
+           SIMULATION AND PHYSICS LOGIC
+           ================================ */
+        const simCanvas = document.getElementById('simCanvas');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const ctxSim = simCanvas.getContext('2d');
+        const ctxGraph = graphCanvas.getContext('2d');
+
+        let isPlaying = false;
+        let time = 0;
+        let lastTimestamp = 0;
+        let reqFrame;
+
+        let pxScale = 12; // Scale: 12 pixels = 1 cm
+        let offsetX = 60; // Offset from left
+        
+        // Y-Coordinates for the distinct displays
+        let eqY = 80;    // Top spring (static equilibrium)
+        let moveY = 190; // Bottom spring (moving simulation)
+
+        let P = { x_cm: 10, label: 'P', color: 'red' };
+        let Q = { x_cm: 20, label: 'Q', color: 'blue' };
+        let draggingPoint = null; 
+        
+        let historyData = []; // Stores {t, sP, sQ}
+
+        // Get Wave Horizontal Displacement s(x,t)
+        function getWaveS(x_cm, t) {
+            let amp = parseFloat(document.getElementById('amp').value);
+            let speed = parseFloat(document.getElementById('speed').value);
+            let freq = parseFloat(document.getElementById('freq').value);
+
+            let lambda = speed / freq;
+            let k = 2 * Math.PI / lambda;
+            let omega = 2 * Math.PI * freq;
+
+            // Wave propagates to the right
+            if (x_cm > speed * t) return 0;
+            return amp * Math.sin(omega * t - k * x_cm);
+        }
+
+        // Draw Left Canvas (Simulation)
+        function drawSim() {
+            ctxSim.clearRect(0, 0, simCanvas.width, simCanvas.height);
+            let maxLenCm = parseFloat(document.getElementById('stringLen').value);
+            let max_x_px = offsetX + maxLenCm * pxScale;
+            let coilStep = 1.5; // Controls how many coils are drawn (higher = fewer coils)
+
+            // --- 1. Draw Top Spring (Equilibrium Position) ---
+            ctxSim.fillStyle = '#888';
+            ctxSim.font = 'bold 12px Arial';
+            ctxSim.fillText("Equilibrium (Rest) Position", 10, eqY - 25);
+
+            ctxSim.strokeStyle = '#ccc';
+            ctxSim.lineWidth = 1.5;
+            for (let x0 = 0; x0 <= maxLenCm; x0 += coilStep) {
+                let drawX = offsetX + x0 * pxScale;
+                ctxSim.beginPath();
+                ctxSim.moveTo(drawX, eqY - 12);
+                ctxSim.lineTo(drawX, eqY + 12);
+                ctxSim.stroke();
+            }
+            // End boundary marker for equilibrium
+            ctxSim.fillStyle = '#ddd';
+            ctxSim.fillRect(max_x_px, eqY - 20, 4, 40);
+
+            // --- 2. Draw Bottom Spring (Vibrating Medium) ---
+            ctxSim.fillStyle = '#666';
+            ctxSim.font = 'bold 12px Arial';
+            ctxSim.fillText("Vibrating Source", 5, moveY - 35);
+
+            // Draw "Coils" of the moving medium
+            ctxSim.strokeStyle = '#444';
+            ctxSim.lineWidth = 2;
+            for (let x0 = 0; x0 <= maxLenCm; x0 += coilStep) {
+                let s = getWaveS(x0, time);
+                let drawX = offsetX + (x0 + s) * pxScale;
+                ctxSim.beginPath();
+                ctxSim.moveTo(drawX, moveY - 20);
+                ctxSim.lineTo(drawX, moveY + 20);
+                ctxSim.stroke();
+            }
+            // End boundary marker for moving string
+            ctxSim.fillStyle = '#aaa';
+            ctxSim.fillRect(max_x_px, moveY - 30, 5, 60);
+
+            // Draw Vibrating Plate (Piston)
+            let s0 = getWaveS(0, time);
+            let plateFaceX = offsetX + s0 * pxScale;
+            ctxSim.fillStyle = '#6c757d';
+            ctxSim.fillRect(10, moveY - 25, plateFaceX - 10, 50);
+
+            // --- 3. Draw Equilibrium Distance Indicator at Bottom ---
+            let minEqX_cm = Math.min(P.x_cm, Q.x_cm);
+            let maxEqX_cm = Math.max(P.x_cm, Q.x_cm);
+            let minEqX_px = offsetX + minEqX_cm * pxScale;
+            let maxEqX_px = offsetX + maxEqX_cm * pxScale;
+            let distY = simCanvas.height - 20;
+
+            if (P.x_cm <= maxLenCm && Q.x_cm <= maxLenCm) {
+                ctxSim.beginPath();
+                ctxSim.strokeStyle = '#888';
+                ctxSim.lineWidth = 2;
+                ctxSim.moveTo(minEqX_px, distY);
+                ctxSim.lineTo(maxEqX_px, distY);
+                ctxSim.moveTo(minEqX_px, distY - 6);
+                ctxSim.lineTo(minEqX_px, distY + 6);
+                ctxSim.moveTo(maxEqX_px, distY - 6);
+                ctxSim.lineTo(maxEqX_px, distY + 6);
+                ctxSim.stroke();
+
+                ctxSim.fillStyle = '#555';
+                ctxSim.font = '14px Arial';
+                ctxSim.textAlign = 'center';
+                let distStr = (maxEqX_cm - minEqX_cm).toFixed(2) + ' cm';
+                ctxSim.fillText(distStr, (minEqX_px + maxEqX_px) / 2, distY - 8);
+                ctxSim.textAlign = 'left'; 
+            }
+
+            // --- 4. Draw Points P and Q ---
+            drawPoint(P);
+            drawPoint(Q);
+
+            function drawPoint(pt) {
+                if (pt.x_cm > maxLenCm) return; 
+
+                let s = getWaveS(pt.x_cm, time);
+                let currentX_px = offsetX + (pt.x_cm + s) * pxScale;
+                let staticEqX_px = offsetX + pt.x_cm * pxScale;
+                
+                // Draw Equilibrium connection dashed line (connecting top spring to bottom spring)
+                ctxSim.beginPath();
+                ctxSim.setLineDash([5, 5]);
+                ctxSim.moveTo(staticEqX_px, eqY);
+                ctxSim.lineTo(staticEqX_px, moveY + 30);
+                ctxSim.strokeStyle = pt.color + '88';
+                ctxSim.lineWidth = 1.5;
+                ctxSim.stroke();
+                ctxSim.setLineDash([]);
+
+                // Draw static dot on the top equilibrium spring
+                ctxSim.beginPath();
+                ctxSim.arc(staticEqX_px, eqY, 4, 0, 2 * Math.PI);
+                ctxSim.fillStyle = pt.color;
+                ctxSim.fill();
+
+                // Draw moving particle on the bottom vibrating spring
+                ctxSim.beginPath();
+                ctxSim.arc(currentX_px, moveY, pt === draggingPoint ? 9 : 7, 0, 2 * Math.PI);
+                ctxSim.fillStyle = pt.color;
+                ctxSim.fill();
+                ctxSim.lineWidth = 2;
+                ctxSim.strokeStyle = '#000';
+                ctxSim.stroke();
+                
+                ctxSim.fillStyle = 'black';
+                ctxSim.font = 'bold 16px Arial';
+                ctxSim.fillText(pt.label, currentX_px - 6, moveY - 25);
+            }
+        }
+
+        // Draw Right Canvas (Graph) left to right
+        function drawGraph() {
+            ctxGraph.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            let cy = graphCanvas.height / 2;
+
+            // Draw static grid lines for Displacement
+            ctxGraph.lineWidth = 1;
+            ctxGraph.font = '12px Arial';
+            for (let y of [-5, -2.5, 0, 2.5, 5]) {
+                let y_px = cy - y * pxScale * 2; // Scale Y axis up a bit for visibility
+                ctxGraph.beginPath();
+                ctxGraph.strokeStyle = y === 0 ? '#666' : '#eee';
+                ctxGraph.moveTo(0, y_px);
+                ctxGraph.lineTo(graphCanvas.width, y_px);
+                ctxGraph.stroke();
+                if (y !== 0) {
+                    ctxGraph.fillStyle = '#aaa';
+                    ctxGraph.fillText(y + ' cm', 5, y_px - 3);
+                }
+            }
+
+            if (historyData.length === 0) return;
+
+            let timeWindow = 5; // Show 5 seconds of graph
+            let windowStart = Math.max(0, time - timeWindow);
+            
+            function plotLine(key, color) {
+                ctxGraph.beginPath();
+                ctxGraph.strokeStyle = color;
+                ctxGraph.lineWidth = 2;
+                let started = false;
+
+                for (let d of historyData) {
+                    if (d.t < windowStart) continue; 
+                    
+                    let x_px = ((d.t - windowStart) / timeWindow) * graphCanvas.width;
+                    let y_px = cy - d[key] * pxScale * 2; // Match the scaled Y axis
+                    
+                    if (!started) { 
+                        ctxGraph.moveTo(x_px, y_px); 
+                        started = true; 
+                    } else { 
+                        ctxGraph.lineTo(x_px, y_px); 
+                    }
+                }
+                ctxGraph.stroke();
+            }
+
+            plotLine('sP', P.color);
+            plotLine('sQ', Q.color);
+
+            // Legend
+            ctxGraph.fillStyle = P.color;
+            ctxGraph.font = 'bold 14px Arial';
+            ctxGraph.fillText("Point P", graphCanvas.width - 60, 20);
+            ctxGraph.fillStyle = Q.color;
+            ctxGraph.fillText("Point Q", graphCanvas.width - 60, 40);
+        }
+
+        // Main Animation Loop
+        function animate(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            let dt = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            if (isPlaying) {
+                time += dt;
+                let sP = getWaveS(P.x_cm, time);
+                let sQ = getWaveS(Q.x_cm, time);
+                historyData.push({ t: time, sP: sP, sQ: sQ });
+                
+                // Prevent memory leak
+                if (historyData.length > 0 && historyData[0].t < time - 6) {
+                    historyData.shift(); 
+                }
+            }
+
+            drawSim();
+            drawGraph();
+            reqFrame = requestAnimationFrame(animate);
+        }
+
+        /* ================================
+           UI INTERACTION LOGIC
+           ================================ */
+           
+        function updateWavelengthDisplay() {
+            let s = parseFloat(document.getElementById('speed').value);
+            let f = parseFloat(document.getElementById('freq').value);
+            document.getElementById('waveLenDisplay').innerText = `Wavelength: ${(s/f).toFixed(2)} cm`;
+        }
+
+        function updateDistanceDisplay() {
+            let dist = Math.abs(P.x_cm - Q.x_cm);
+            document.getElementById('distanceDisplay').innerText = `Equilibrium Dist P-Q: ${dist.toFixed(2)} cm`;
+        }
+
+        // Dynamic Label Updates
+        ['amp', 'speed', 'freq', 'stringLen'].forEach(id => {
+            document.getElementById(id).addEventListener('input', function() {
+                document.getElementById(id + 'Val').innerText = this.value;
+                updateWavelengthDisplay();
+                
+                let max_len = parseFloat(document.getElementById('stringLen').value);
+                if (P.x_cm > max_len) P.x_cm = max_len;
+                if (Q.x_cm > max_len) Q.x_cm = max_len;
+                updateDistanceDisplay();
+                
+                if (!isPlaying) { drawSim(); drawGraph(); }
+            });
+        });
+
+        // Mouse Handlers for Dragging P and Q
+        simCanvas.addEventListener('mousedown', (e) => {
+            const rect = simCanvas.getBoundingClientRect();
+            const x_px = (e.clientX - rect.left) * (simCanvas.width / rect.width);
+            const y_px = (e.clientY - rect.top) * (simCanvas.height / rect.height);
+            
+            // Check interaction using current moving positions around moveY
+            let sP = getWaveS(P.x_cm, time);
+            let sQ = getWaveS(Q.x_cm, time);
+            let currentXP_px = offsetX + (P.x_cm + sP) * pxScale;
+            let currentXQ_px = offsetX + (Q.x_cm + sQ) * pxScale;
+
+            let max_len = parseFloat(document.getElementById('stringLen').value);
+            
+            if (P.x_cm <= max_len && Math.hypot(x_px - currentXP_px, y_px - moveY) < 20) {
+                draggingPoint = P;
+            } else if (Q.x_cm <= max_len && Math.hypot(x_px - currentXQ_px, y_px - moveY) < 20) {
+                draggingPoint = Q;
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = simCanvas.getBoundingClientRect();
+            const x_px = (e.clientX - rect.left) * (simCanvas.width / rect.width);
+            const y_px = (e.clientY - rect.top) * (simCanvas.height / rect.height);
+
+            if (draggingPoint) {
+                // Determine new equilibrium position based on mouse position
+                let new_x_cm = (x_px - offsetX) / pxScale;
+                let max_len = parseFloat(document.getElementById('stringLen').value);
+                
+                if (new_x_cm < 1.5) new_x_cm = 1.5; 
+                if (new_x_cm > max_len) new_x_cm = max_len;
+                
+                draggingPoint.x_cm = new_x_cm;
+                updateDistanceDisplay();
+                
+                if (!isPlaying) { drawSim(); drawGraph(); }
+            } else {
+                let sP = getWaveS(P.x_cm, time);
+                let sQ = getWaveS(Q.x_cm, time);
+                let currentXP_px = offsetX + (P.x_cm + sP) * pxScale;
+                let currentXQ_px = offsetX + (Q.x_cm + sQ) * pxScale;
+
+                if (Math.hypot(x_px - currentXP_px, y_px - moveY) < 20 || Math.hypot(x_px - currentXQ_px, y_px - moveY) < 20) {
+                    simCanvas.style.cursor = 'grab';
+                } else {
+                    simCanvas.style.cursor = 'default';
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (draggingPoint) {
+                draggingPoint = null;
+                simCanvas.style.cursor = 'default';
+            }
+        });
+
+        // Action Buttons
+        document.getElementById('btnStart').onclick = () => {
+            if (!isPlaying) {
+                isPlaying = true;
+                lastTimestamp = performance.now();
+                if (!reqFrame) reqFrame = requestAnimationFrame(animate);
+            }
+        };
+
+        document.getElementById('btnPause').onclick = () => {
+            if (isPlaying) isPlaying = false;
+            else {
+                isPlaying = true;
+                lastTimestamp = performance.now();
+            }
+        };
+
+        document.getElementById('btnReset').onclick = () => {
+            isPlaying = false;
+            time = 0;
+            P.x_cm = 10;
+            Q.x_cm = 20;
+            historyData = [];
+            
+            // Reset Sliders
+            document.getElementById('amp').value = 1.5; document.getElementById('ampVal').innerText = '1.5';
+            document.getElementById('speed').value = 10; document.getElementById('speedVal').innerText = '10';
+            document.getElementById('freq').value = 1; document.getElementById('freqVal').innerText = '1';
+            document.getElementById('stringLen').value = 40; document.getElementById('lenVal').innerText = '40';
+            updateWavelengthDisplay();
+            updateDistanceDisplay();
+            
+            drawSim();
+            drawGraph();
+        };
+
+        // Initial Draw
+        updateWavelengthDisplay();
+        updateDistanceDisplay();
+        drawSim();
+        drawGraph();
+
+        /* ================================
+           QUIZ & GOOGLE FORM LOGIC
+           ================================ */
+        const quizData = [
+            { q: "In a longitudinal wave, a region where particles are packed closely together is called a:", options: ["Compression", "Rarefaction", "Trough", "Crest"], ans: 0 },
+            { q: "A region where particles are spread furthest apart is called a:", options: ["Compression", "Trough", "Rarefaction", "Crest"], ans: 2 },
+            { q: "How do particles of the medium move in a longitudinal wave?", options: ["Perpendicular to wave direction", "Parallel to wave direction", "In circular motions", "They do not move"], ans: 1 },
+            { q: "Which of the following is an example of a longitudinal wave?", options: ["Light wave", "Water wave", "Sound wave", "Wave on a string"], ans: 2 },
+            { q: "The distance between two consecutive compressions is called the:", options: ["Amplitude", "Wavelength", "Frequency", "Wave speed"], ans: 1 },
+            { q: "Which formula relates wave speed (v), frequency (f), and wavelength (λ)?", options: ["v = f + λ", "v = λ / f", "v = f * λ", "v = f / λ"], ans: 2 },
+            { q: "What is the standard unit of frequency?", options: ["Seconds (s)", "Hertz (Hz)", "Meters (m)", "Meters/second (m/s)"], ans: 1 },
+            { q: "What does the 'Amplitude' represent in this longitudinal wave simulation?", options: ["Distance between compressions", "Speed of the wave", "Maximum displacement of a particle from its rest position", "Length of the entire medium"], ans: 2 },
+            { q: "If the frequency of a wave increases while its speed remains constant, what happens to its wavelength?", options: ["Increases", "Decreases", "Stays the same", "Becomes zero"], ans: 1 },
+            { q: "If a particle completes 5 full back-and-forth oscillations in 1 second, its frequency is:", options: ["1 Hz", "2.5 Hz", "5 Hz", "10 Hz"], ans: 2 }
+        ];
+
+        let sClass = '', sNumber = '', sMark = 0, currentQIndex = 0;
+        const modal = document.getElementById('quizModal');
+        const content = document.getElementById('quizContent');
+
+        document.getElementById('btnQuiz').onclick = () => {
+            modal.style.display = 'block';
+            showIntro();
+        };
+
+        function showIntro() {
+            content.innerHTML = `
+                <h2>Start Physics Quiz</h2>
+                <p>Please enter your details before beginning the quiz.</p>
+                <label>Class:</label>
+                <input type="text" id="inClass" placeholder="e.g. 3A">
+                <label>Class Number:</label>
+                <input type="text" id="inNumber" placeholder="e.g. 15">
+                <button class="btn btn-start" id="btnStartQuiz">Start Quiz</button>
+                <button class="btn btn-reset" id="btnCancel">Cancel</button>
+            `;
+            document.getElementById('btnStartQuiz').onclick = () => {
+                sClass = document.getElementById('inClass').value.trim();
+                sNumber = document.getElementById('inNumber').value.trim();
+                if (!sClass || !sNumber) {
+                    alert("Please fill out both your Class and Class Number.");
+                    return;
+                }
+                sMark = 0;
+                currentQIndex = 0;
+                showQuestion();
+            };
+            document.getElementById('btnCancel').onclick = () => {
+                modal.style.display = 'none';
+            };
+        }
+
+        function showQuestion() {
+            if (currentQIndex >= quizData.length) {
+                showResults();
+                return;
+            }
+            let qItem = quizData[currentQIndex];
+            let optionsHTML = qItem.options.map((opt, i) => 
+                `<div class="quiz-option" onclick="handleAnswer(${i})">${opt}</div>`
+            ).join('');
+
+            content.innerHTML = `
+                <h3>Question ${currentQIndex + 1} of ${quizData.length}</h3>
+                <p style="font-size: 18px; margin-bottom: 20px;">${qItem.q}</p>
+                ${optionsHTML}
+            `;
+        }
+
+        window.handleAnswer = function(selectedIdx) {
+            if (selectedIdx === quizData[currentQIndex].ans) sMark++;
+            currentQIndex++;
+            showQuestion(); 
+        };
+
+        function showResults() {
+            content.innerHTML = `
+                <h2>Quiz Completed!</h2>
+                <p style="font-size: 20px;">Your Score: <strong>${sMark} / ${quizData.length}</strong></p>
+                <p>Would you like to retry or finish the test and submit your score?</p>
+                <button class="btn btn-pause" id="btnRetry">Retry Test</button>
+                <button class="btn btn-start" id="btnFinish">Finish & Submit</button>
+            `;
+
+            document.getElementById('btnRetry').onclick = () => {
+                sMark = 0;
+                currentQIndex = 0;
+                showQuestion();
+            };
+
+            document.getElementById('btnFinish').onclick = () => {
+                submitDataToForm(sClass, sNumber, sMark);
+                modal.style.display = 'none';
+                alert("Thank you! Your score has been submitted.");
+            };
+        }
+
+        function submitDataToForm(cls, num, mark) {
+            const formURL = "https://docs.google.com/forms/d/e/1FAIpQLScCo5QDGVXzi9Npde-OIXKVszM_PwEeK2VC9ezBGdUsFMI43Q/formResponse";
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", cls);
+            formData.append("entry.777103265", num);
+            formData.append("entry.1173990498", mark);
+            formData.append("submit", "Submit");
+
+            fetch(formURL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("Data successfully posted to Google Forms");
+            }).catch(err => {
+                console.error("Submission Error", err);
+            });
+        }
+    </script>
+</body>
+</html>
