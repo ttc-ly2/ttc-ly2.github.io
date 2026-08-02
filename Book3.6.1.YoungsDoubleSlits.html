@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Young's Double Slit Experiment Simulation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #eef2f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .panel {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        
+        /* Upper Row - Controls */
+        .controls-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        .sliders {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .slider-group label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        .buttons-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            align-content: center;
+        }
+        button {
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            color: white;
+        }
+        button:hover { opacity: 0.85; transform: scale(0.98); }
+        .btn-start { background-color: #4CAF50; }
+        .btn-pause { background-color: #FF9800; }
+        .btn-reset { background-color: #F44336; }
+        .btn-quiz { background-color: #2196F3; grid-column: span 2; }
+
+        /* Lower Row - Simulation */
+        .simulation-row {
+            display: flex;
+            gap: 20px;
+        }
+        .sim-canvas-container {
+            flex: 2;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 450px;
+        }
+        .sim-math-container {
+            flex: 1;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .sim-math-container span.highlight { color: #4CAF50; font-weight: bold; }
+        .sim-math-container span.result { 
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 1.2em;
+            margin-top: 10px;
+        }
+
+        /* Quiz Modal */
+        .modal {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000;
+        }
+        
+        .hidden { display: none !important; }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .modal-content h2 { margin-top: 0; color: #2196F3; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { display: block; font-weight: bold; margin-bottom: 5px;}
+        .input-group input[type="text"] { width: calc(100% - 20px); padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        
+        .quiz-option {
+            display: block; text-align: left; background: #f4f4f9; padding: 12px; margin: 8px 0; border-radius: 5px; cursor: pointer; border: 1px solid #ddd;
+            transition: background 0.2s;
+        }
+        .quiz-option:hover { background: #e0e0e0; }
+        .quiz-option input { margin-right: 10px; cursor: pointer; }
+        
+        .quiz-buttons { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
+        .btn-primary { background: #2196F3; }
+        .btn-secondary { background: #9E9E9E; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Upper Row: Controls -->
+    <div class="panel controls-row">
+        <div class="sliders">
+            <div class="slider-group">
+                <label>Separation between slits (a): <span id="val-a">0.5 mm</span></label>
+                <input type="range" id="slider-a" min="0.1" max="2.0" step="0.1" value="0.5" oninput="updateValues()">
+            </div>
+            <div class="slider-group">
+                <label>Distance to screen (D): <span id="val-D">3 m</span></label>
+                <input type="range" id="slider-D" min="1" max="10" step="0.5" value="3" oninput="updateValues()">
+            </div>
+            <div class="slider-group">
+                <label>Wavelength of light (&lambda;): <span id="val-lambda">500 nm</span></label>
+                <input type="range" id="slider-lambda" min="450" max="700" step="5" value="500" oninput="updateValues()">
+            </div>
+        </div>
+        <div class="buttons-group">
+            <button class="btn-start" onclick="startSim()">Start</button>
+            <button class="btn-pause" onclick="togglePause()">Pause / Resume</button>
+            <button class="btn-reset" onclick="resetSim()">Reset</button>
+            <button class="btn-quiz" onclick="openQuiz()">Start a Quiz</button>
+        </div>
+    </div>
+
+    <!-- Lower Row: Simulation & Math -->
+    <div class="simulation-row">
+        <div class="sim-canvas-container">
+            <canvas id="simCanvas"></canvas>
+        </div>
+        <div class="sim-math-container">
+            <h3 style="color: #4CAF50; margin-top: 0;">Fringe Separation Calculation</h3>
+            <p>Formula: <strong>y = &lambda;D / a</strong></p>
+            <div style="border-top: 1px solid #444; margin: 10px 0; padding-top: 10px;">
+                &lambda; = <span id="m-lambda" class="highlight">500</span> nm = <span id="m-lambda-m">500 x 10<sup>-9</sup></span> m<br><br>
+                D = <span id="m-D" class="highlight">3</span> m<br><br>
+                a = <span id="m-a" class="highlight">0.5</span> mm = <span id="m-a-m">0.5 x 10<sup>-3</sup></span> m
+            </div>
+            <div style="border-top: 1px solid #444; margin: 10px 0; padding-top: 10px;">
+                y = (<span id="calc-l">500x10<sup>-9</sup></span> * <span id="calc-D">3</span>) / <span id="calc-a">0.5x10<sup>-3</sup></span><br><br>
+                y = <span id="calc-y-m">0.003</span> m<br>
+                <span class="result">y = <span id="calc-y-mm">3.00</span> mm</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quiz Modal -->
+<div id="quizModal" class="modal hidden">
+    <!-- Intro Stage -->
+    <div id="quiz-intro" class="modal-content">
+        <h2>Physics Quiz: Double Slit Experiment</h2>
+        <p>Please enter your details to begin the 10-question quiz.</p>
+        <div class="input-group">
+            <label>Class (S_Class):</label>
+            <input type="text" id="sClass" placeholder="e.g. 5A">
+        </div>
+        <div class="input-group">
+            <label>Class Number (S_Number):</label>
+            <input type="text" id="sNum" placeholder="e.g. 12">
+        </div>
+        <button class="btn-primary" style="width: 100%; margin-top: 10px;" onclick="beginQuiz()">Start Quiz</button>
+        <button class="btn-secondary" style="width: 100%; margin-top: 10px;" onclick="closeQuiz()">Cancel</button>
+    </div>
+    
+    <!-- Question Stage -->
+    <div id="quiz-questions" class="modal-content hidden">
+        <h2 id="qTitle">Question 1 of 10</h2>
+        <p id="qText" style="font-weight: bold; text-align: left; font-size: 1.1em;"></p>
+        <div id="qOptions"></div>
+        <!-- Removed "Next" button entirely -->
+    </div>
+
+    <!-- Result Stage -->
+    <div id="quiz-result" class="modal-content hidden">
+        <h2>Quiz Completed!</h2>
+        <h1 id="scoreText" style="color: #4CAF50; font-size: 3em; margin: 20px 0;"></h1>
+        <p>Your results will be automatically sent to the system.</p>
+        <div class="quiz-buttons" style="justify-content: center;">
+            <button class="btn-secondary" onclick="retryQuiz()">Retry Quiz</button>
+            <button class="btn-primary" onclick="finishQuiz()">Finish & Submit</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* =========================================
+       SIMULATION VARIABLES & LOGIC 
+       ========================================= */
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = 800;
+    canvas.height = 450;
+
+    let isStarted = false;
+    let isRunning = false;
+    let time = 0;
+    let animFrame;
+
+    function getRGB(wavelength, alpha = 1) {
+        let R, G, B;
+        if (wavelength >= 380 && wavelength < 440) { R = -(wavelength - 440) / (440 - 380); G = 0.0; B = 1.0; } 
+        else if (wavelength >= 440 && wavelength < 490) { R = 0.0; G = (wavelength - 440) / (490 - 440); B = 1.0; } 
+        else if (wavelength >= 490 && wavelength < 510) { R = 0.0; G = 1.0; B = -(wavelength - 510) / (510 - 490); } 
+        else if (wavelength >= 510 && wavelength < 580) { R = (wavelength - 510) / (580 - 510); G = 1.0; B = 0.0; } 
+        else if (wavelength >= 580 && wavelength < 645) { R = 1.0; G = -(wavelength - 645) / (645 - 580); B = 0.0; } 
+        else if (wavelength >= 645 && wavelength <= 780) { R = 1.0; G = 0.0; B = 0.0; } 
+        else { R = 0.0; G = 0.0; B = 0.0; }
+        return `rgba(${Math.round(R * 255)}, ${Math.round(G * 255)}, ${Math.round(B * 255)}, ${alpha})`;
+    }
+
+    function updateValues() {
+        let a = parseFloat(document.getElementById('slider-a').value);
+        let D = parseFloat(document.getElementById('slider-D').value);
+        let lambda = parseFloat(document.getElementById('slider-lambda').value);
+
+        document.getElementById('val-a').innerText = a.toFixed(1) + " mm";
+        document.getElementById('val-D').innerText = D.toFixed(1) + " m";
+        document.getElementById('val-lambda').innerText = lambda + " nm";
+
+        let y_mm = (lambda * D * 1e-3) / a;
+
+        document.getElementById('m-lambda').innerText = lambda;
+        document.getElementById('m-lambda-m').innerHTML = `${lambda} x 10<sup>-9</sup>`;
+        document.getElementById('m-D').innerText = D;
+        document.getElementById('m-a').innerText = a;
+        document.getElementById('m-a-m').innerHTML = `${a} x 10<sup>-3</sup>`;
+
+        document.getElementById('calc-l').innerHTML = `${lambda}x10<sup>-9</sup>`;
+        document.getElementById('calc-D').innerText = D;
+        document.getElementById('calc-a').innerHTML = `${a}x10<sup>-3</sup>`;
+        
+        document.getElementById('calc-y-m').innerText = (y_mm / 1000).toFixed(4);
+        document.getElementById('calc-y-mm').innerText = y_mm.toFixed(2);
+
+        if (!isRunning && isStarted) { draw(); }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        let a = parseFloat(document.getElementById('slider-a').value);
+        let D = parseFloat(document.getElementById('slider-D').value);
+        let lambda = parseFloat(document.getElementById('slider-lambda').value);
+
+        let slitDist = a * 60; 
+        let waveSpacing = lambda / 35; 
+        let cy = canvas.height / 2;
+        let slit1Y = cy - slitDist / 2;
+        let slit2Y = cy + slitDist / 2;
+        
+        let colorSolid = getRGB(lambda, 1);
+        let colorFaint = getRGB(lambda, 0.3);
+
+        ctx.fillStyle = '#555';
+        ctx.fillRect(78, 0, 4, canvas.height);
+        
+        if (isStarted) {
+            ctx.clearRect(78, slit1Y - 3, 4, 6);
+            ctx.clearRect(78, slit2Y - 3, 4, 6);
+            
+            ctx.fillStyle = colorFaint;
+            ctx.fillRect(0, 0, 78, canvas.height);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(82, 0, canvas.width - 132, canvas.height);
+            ctx.clip(); 
+
+            ctx.strokeStyle = colorSolid;
+            ctx.lineWidth = 1.5;
+            let offset = (time * 1.5) % waveSpacing;
+            
+            for (let r = offset; r < 900; r += waveSpacing) {
+                ctx.beginPath(); ctx.arc(80, slit1Y, r, -Math.PI/2, Math.PI/2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(80, slit2Y, r, -Math.PI/2, Math.PI/2); ctx.stroke();
+            }
+            ctx.restore();
+
+            ctx.fillStyle = '#222';
+            ctx.fillRect(750, 0, 50, canvas.height);
+
+            for (let py = 0; py < canvas.height; py++) {
+                let realY_mm = (py - cy) / 5; 
+                let delta = (2 * Math.PI * a * realY_mm) / (lambda * 1e-3 * D); 
+                let intensity = Math.pow(Math.cos(delta / 2), 2);
+                
+                ctx.fillStyle = getRGB(lambda, intensity);
+                ctx.fillRect(750, py, 50, 1);
+            }
+        }
+        
+        if (isRunning) {
+            time++;
+            animFrame = requestAnimationFrame(draw);
+        }
+    }
+
+    function startSim() {
+        if (!isStarted) {
+            isStarted = true;
+            isRunning = true;
+            draw();
+        }
+    }
+
+    function togglePause() {
+        if (!isStarted) return;
+        isRunning = !isRunning;
+        if (isRunning) draw();
+        else cancelAnimationFrame(animFrame);
+    }
+
+    function resetSim() {
+        document.getElementById('slider-a').value = 0.5;
+        document.getElementById('slider-D').value = 3;
+        document.getElementById('slider-lambda').value = 500;
+        updateValues();
+        
+        isStarted = false;
+        isRunning = false;
+        time = 0;
+        cancelAnimationFrame(animFrame);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#555';
+        ctx.fillRect(78, 0, 4, canvas.height);
+    }
+
+    updateValues();
+    resetSim();
+
+    /* =========================================
+       QUIZ SYSTEM LOGIC 
+       ========================================= */
+    const questions = [
+        { q: "What does Young's double slit experiment primarily demonstrate?", opts: ["Particle nature of light", "Wave nature of light", "Reflection of light", "Refraction of light"], a: 1 },
+        { q: "Which formula calculates the fringe separation (y)?", opts: ["y = aD / λ", "y = λa / D", "y = λD / a", "y = D / λa"], a: 2 },
+        { q: "If the separation between the slits (a) increases, the fringe separation will:", opts: ["Increase", "Decrease", "Remain the same", "Become zero"], a: 1 },
+        { q: "Increasing the distance to the screen (D) will cause the fringes to:", opts: ["Move closer together", "Move further apart", "Disappear", "Change color"], a: 1 },
+        { q: "Which wavelength of light produces the widest fringe separation?", opts: ["Red (700 nm)", "Green (500 nm)", "Blue (450 nm)", "They all produce the same separation"], a: 0 },
+        { q: "What happens to the interference pattern if the wavelength is decreased?", opts: ["Fringes become wider", "Fringes become narrower", "No change", "Pattern disappears"], a: 1 },
+        { q: "What is the central fringe in Young's double slit experiment?", opts: ["A dark fringe", "A bright fringe", "Colored fringe", "Invisible"], a: 1 },
+        { q: "The bright fringes are formed due to:", opts: ["Destructive interference", "Constructive interference", "Diffraction only", "Reflection"], a: 1 },
+        { q: "For a clear, stable interference pattern, the light sources must be:", opts: ["Incoherent", "Coherent", "White light only", "Pulsing"], a: 1 },
+        { q: "What happens if one of the two slits is completely covered?", opts: ["The interference pattern disappears", "The fringe separation doubles", "The fringes become brighter", "The pattern remains unchanged"], a: 0 }
+    ];
+
+    let currentQ = 0;
+    let score = 0;
+    let studentClass = '';
+    let studentNumber = '';
+    let isTransitioning = false; // Prevents double-clicking
+
+    function openQuiz() {
+        document.getElementById('quizModal').classList.remove('hidden');
+        document.getElementById('quiz-intro').classList.remove('hidden');
+        document.getElementById('quiz-questions').classList.add('hidden');
+        document.getElementById('quiz-result').classList.add('hidden');
+        document.getElementById('sClass').value = '';
+        document.getElementById('sNum').value = '';
+    }
+
+    function closeQuiz() {
+        document.getElementById('quizModal').classList.add('hidden');
+    }
+
+    function beginQuiz() {
+        studentClass = document.getElementById('sClass').value.trim();
+        studentNumber = document.getElementById('sNum').value.trim();
+        if (!studentClass || !studentNumber) {
+            alert("Please enter both Class and Class Number.");
+            return;
+        }
+        score = 0;
+        currentQ = 0;
+        isTransitioning = false;
+        document.getElementById('quiz-intro').classList.add('hidden');
+        document.getElementById('quiz-questions').classList.remove('hidden');
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        let qData = questions[currentQ];
+        document.getElementById('qTitle').innerText = `Question ${currentQ + 1} of 10`;
+        document.getElementById('qText').innerText = qData.q;
+        
+        let optsHTML = '';
+        qData.opts.forEach((opt, idx) => {
+            // Added onchange event directly to the inputs
+            optsHTML += `<label class="quiz-option">
+                            <input type="radio" name="q_opt" value="${idx}" onchange="handleAnswer(this.value)"> ${opt}
+                         </label>`;
+        });
+        document.getElementById('qOptions').innerHTML = optsHTML;
+    }
+
+    // New function that processes the answer directly
+    function handleAnswer(selectedValue) {
+        if (isTransitioning) return; // Stop if already moving to the next question
+        isTransitioning = true;
+        
+        let selectedInt = parseInt(selectedValue);
+        
+        // Slight delay so the user can see the button get checked before jumping
+        setTimeout(() => {
+            if (selectedInt === questions[currentQ].a) {
+                score++;
+            }
+            
+            currentQ++;
+            if (currentQ < 10) {
+                renderQuestion();
+            } else {
+                showResults();
+            }
+            isTransitioning = false;
+        }, 300); 
+    }
+
+    function showResults() {
+        document.getElementById('quiz-questions').classList.add('hidden');
+        document.getElementById('quiz-result').classList.remove('hidden');
+        document.getElementById('scoreText').innerText = `${score} / 10`;
+    }
+
+    function retryQuiz() {
+        score = 0;
+        currentQ = 0;
+        isTransitioning = false;
+        document.getElementById('quiz-result').classList.add('hidden');
+        document.getElementById('quiz-questions').classList.remove('hidden');
+        renderQuestion();
+    }
+
+    function finishQuiz() {
+        const baseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSdOO2B523pUtgNltQJ7WVlw_65BNJhWjc94vg3N_eq9E8USvw/formResponse";
+        
+        const params = new URLSearchParams();
+        params.append("usp", "pp_url");
+        params.append("entry.753594098", studentClass);
+        params.append("entry.777103265", studentNumber);
+        params.append("entry.1173990498", score);
+        params.append("submit", "Submit");
+        
+        const targetUrl = `${baseUrl}?${params.toString()}`;
+
+        fetch(targetUrl, { mode: 'no-cors' })
+            .then(() => {
+                alert("Quiz finished! Your score has been automatically saved.");
+                closeQuiz();
+            })
+            .catch(error => {
+                console.error('Error submitting form:', error);
+                alert("Quiz finished, but there was an error saving your score.");
+                closeQuiz();
+            });
+    }
+</script>
+</body>
+</html>
