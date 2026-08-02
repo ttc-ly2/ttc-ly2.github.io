@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Wave Interference Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        /* Top Row Controls */
+        .upper-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 25px;
+            background-color: #343a40;
+            color: #fff;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.9em;
+        }
+        .control-group select {
+            padding: 4px;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.quiz-btn {
+            background-color: #28a745;
+            margin-left: auto;
+        }
+        button.quiz-btn:hover {
+            background-color: #1e7e34;
+        }
+
+        /* Bottom Row Simulation */
+        .lower-row {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .canvas-container {
+            flex: 1;
+            background: #e0f7fa;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        canvas {
+            display: block;
+            cursor: crosshair;
+            width: 100%;
+            height: auto;
+        }
+        .info-panel {
+            width: 320px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
+        }
+        .info-panel h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .math-text {
+            font-size: 1.1em;
+            background: #f1f3f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .conclusion {
+            font-weight: bold;
+            color: #0056b3;
+            font-size: 1.1em;
+        }
+
+        /* Quiz Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+        .modal-content h2 { margin-top: 0; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; }
+        .input-group input { width: 100%; padding: 8px; box-sizing: border-box; }
+        
+        .option-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 10px;
+            padding: 12px;
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #ccc;
+        }
+        .option-btn:hover { background: #e9ecef; }
+        #quiz-screens > div { display: none; }
+        #quiz-screens > div.active { display: block; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Upper Row: Controls -->
+    <div class="upper-row">
+        <div class="control-group">
+            <label for="sepSlider">Separation: <span id="sepVal">5</span> cm</label>
+            <input type="range" id="sepSlider" min="1" max="10" step="0.1" value="5">
+        </div>
+        <div class="control-group">
+            <label for="waveSlider">Wavelength: <span id="waveVal">2</span> cm</label>
+            <input type="range" id="waveSlider" min="1" max="5" step="0.1" value="2">
+        </div>
+        <div class="control-group">
+            <label for="speedSlider">Wave Speed: <span id="speedVal">1.0</span>x</label>
+            <input type="range" id="speedSlider" min="0.1" max="3" step="0.1" value="1">
+        </div>
+        <div class="control-group">
+            <label for="lineDisplay">Show Lines:</label>
+            <select id="lineDisplay">
+                <option value="both">Both</option>
+                <option value="antinodal">Antinodal Only</option>
+                <option value="nodal">Nodal Only</option>
+                <option value="none">None</option>
+            </select>
+        </div>
+        
+        <button id="startBtn">Start</button>
+        <button id="pauseBtn">Pause/Resume</button>
+        <button id="resetBtn">Reset</button>
+
+        <button class="quiz-btn" id="openQuizBtn">Start a Quiz</button>
+    </div>
+
+    <!-- Lower Row: Simulation -->
+    <div class="lower-row">
+        <div class="canvas-container">
+            <canvas id="simCanvas" width="800" height="500"></canvas>
+        </div>
+        
+        <div class="info-panel">
+            <h3>Object P Calculations</h3>
+            <p style="margin-top: 0;">Drag point <b>P</b> on the surface to calculate its path difference.</p>
+            
+            <div class="math-text">
+                S₁P = <span id="s1p">0.00</span> cm<br>
+                S₂P = <span id="s2p">0.00</span> cm<br>
+                Path Diff |S₁P - S₂P| = <span id="pdiff">0.00</span> cm
+            </div>
+
+            <div class="math-text">
+                Path Diff / Wavelength (λ) = <span id="pratio">0.00</span>
+            </div>
+
+            <p>Interference Type:</p>
+            <div class="conclusion" id="interferenceType">Move object P</div>
+
+            <hr style="margin:20px 0; border:0; border-top:1px solid #ccc;">
+            <p style="font-size: 0.9em; color: #666; margin-bottom: 5px;">
+                <b>Solid green lines:</b> Antinodal (Constructive)
+            </p>
+            <p style="font-size: 0.9em; color: #666; margin-top: 0;">
+                <b>Dotted red lines:</b> Nodal (Destructive)
+            </p>
+        </div>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div class="modal-overlay" id="quizModal">
+        <div class="modal-content">
+            <div id="quiz-screens">
+                
+                <!-- Registration Screen -->
+                <div id="screen-reg" class="active">
+                    <h2>Quiz Registration</h2>
+                    <div class="input-group">
+                        <label>Class</label>
+                        <input type="text" id="sClass" placeholder="e.g. 5A">
+                    </div>
+                    <div class="input-group">
+                        <label>Class Number</label>
+                        <input type="number" id="sNumber" placeholder="e.g. 15">
+                    </div>
+                    <button id="startQuizBtn" style="width: 100%;">Start Quiz</button>
+                    <button id="closeModalBtn" style="width: 100%; background: #6c757d; margin-top:10px;">Cancel</button>
+                </div>
+
+                <!-- Question Screen -->
+                <div id="screen-q">
+                    <h2>Question <span id="qIndexDisp">1</span>/10</h2>
+                    <p id="qText" style="font-size: 1.1em; font-weight: bold;"></p>
+                    <div id="optionsContainer"></div>
+                </div>
+
+                <!-- Result Screen -->
+                <div id="screen-result">
+                    <h2>Quiz Completed!</h2>
+                    <p style="font-size: 1.2em;">Your Score: <strong id="scoreDisp">0</strong> / 10</p>
+                    <div style="display:flex; gap:10px; margin-top:20px;">
+                        <button id="retryBtn" style="flex:1; background:#17a2b8;">Retry</button>
+                        <button id="finishBtn" style="flex:1; background:#28a745;">Finish Test</button>
+                    </div>
+                </div>
+
+                <!-- Saving Screen -->
+                <div id="screen-saving">
+                    <h2>Saving Results...</h2>
+                    <p>Submitting your mark. Please wait.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================
+           SIMULATION LOGIC
+           ========================================= */
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // UI Elements
+        const sepSlider = document.getElementById('sepSlider');
+        const waveSlider = document.getElementById('waveSlider');
+        const speedSlider = document.getElementById('speedSlider');
+        const lineDisplay = document.getElementById('lineDisplay');
+        const sepVal = document.getElementById('sepVal');
+        const waveVal = document.getElementById('waveVal');
+        const speedVal = document.getElementById('speedVal');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // State Variables
+        let isStarted = false;
+        let isPaused = false;
+        let time = 0;
+        
+        const pxPerCm = 35; // scale factor to fit standard screens
+        
+        // Physics Data
+        let separation = parseFloat(sepSlider.value);
+        let wavelength = parseFloat(waveSlider.value);
+        let waveSpeed = parseFloat(speedSlider.value);
+        
+        // Object P coordinates (relative to canvas center)
+        let pX = 50; 
+        let pY = -80;
+        let isDraggingP = false;
+
+        // Sliders & Controls events
+        sepSlider.addEventListener('input', (e) => {
+            separation = parseFloat(e.target.value);
+            sepVal.innerText = separation;
+            updateCalculations();
+        });
+        waveSlider.addEventListener('input', (e) => {
+            wavelength = parseFloat(e.target.value);
+            waveVal.innerText = wavelength;
+            updateCalculations();
+        });
+        speedSlider.addEventListener('input', (e) => {
+            waveSpeed = parseFloat(e.target.value);
+            speedVal.innerText = waveSpeed.toFixed(1);
+        });
+
+        // Buttons events
+        startBtn.addEventListener('click', () => { isStarted = true; isPaused = false; });
+        pauseBtn.addEventListener('click', () => { if(isStarted) isPaused = !isPaused; });
+        resetBtn.addEventListener('click', () => {
+            isStarted = false;
+            isPaused = false;
+            time = 0;
+            
+            // Reset input values
+            sepSlider.value = 5;
+            waveSlider.value = 2;
+            speedSlider.value = 1;
+            lineDisplay.value = 'both';
+            
+            // Reset state values
+            separation = 5;
+            wavelength = 2;
+            waveSpeed = 1;
+            
+            // Update labels
+            sepVal.innerText = 5;
+            waveVal.innerText = 2;
+            speedVal.innerText = "1.0";
+            
+            pX = 50; pY = -80;
+            updateCalculations();
+        });
+
+        // Mouse interactions for dragging Point P
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            // Scale mouse coordinates in case CSS scales the canvas width
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const mouseX = (e.clientX - rect.left) * scaleX - canvas.width/2;
+            const mouseY = (e.clientY - rect.top) * scaleY - canvas.height/2;
+            
+            if(Math.hypot(mouseX - pX, mouseY - pY) < 20) {
+                isDraggingP = true;
+            }
+        });
+        window.addEventListener('mousemove', (e) => {
+            if(!isDraggingP) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            pX = (e.clientX - rect.left) * scaleX - canvas.width/2;
+            pY = (e.clientY - rect.top) * scaleY - canvas.height/2;
+            updateCalculations();
+        });
+        window.addEventListener('mouseup', () => { isDraggingP = false; });
+
+        function updateCalculations() {
+            const s1x = (-separation / 2) * pxPerCm;
+            const s2x = (separation / 2) * pxPerCm;
+            
+            const dist1Px = Math.hypot(pX - s1x, pY);
+            const dist2Px = Math.hypot(pX - s2x, pY);
+            
+            const dist1Cm = dist1Px / pxPerCm;
+            const dist2Cm = dist2Px / pxPerCm;
+            const diffCm = Math.abs(dist1Cm - dist2Cm);
+            
+            document.getElementById('s1p').innerText = dist1Cm.toFixed(2);
+            document.getElementById('s2p').innerText = dist2Cm.toFixed(2);
+            document.getElementById('pdiff').innerText = diffCm.toFixed(2);
+            
+            const ratio = diffCm / wavelength;
+            document.getElementById('pratio').innerText = ratio.toFixed(2) + " λ";
+
+            const rem = ratio % 1;
+            const conclusionEl = document.getElementById('interferenceType');
+            
+            if(!isStarted) {
+                conclusionEl.innerText = "Simulation not started";
+                conclusionEl.style.color = "#888";
+            } else if(Math.abs(rem - 0) < 0.1 || Math.abs(rem - 1) < 0.1) {
+                conclusionEl.innerText = "Constructive (Antinodal)";
+                conclusionEl.style.color = "#28a745";
+            } else if(Math.abs(rem - 0.5) < 0.1) {
+                conclusionEl.innerText = "Destructive (Nodal)";
+                conclusionEl.style.color = "#dc3545";
+            } else {
+                conclusionEl.innerText = "Intermediate";
+                conclusionEl.style.color = "#fd7e14";
+            }
+        }
+
+        // Draw mathematical hyperbolas for nodal/antinodal lines
+        function drawHyperbola(a_cm, c_cm, isDotted) {
+            if (a_cm === 0) {
+                // Central antinodal line is a straight line
+                ctx.beginPath();
+                ctx.moveTo(0, -canvas.height);
+                ctx.lineTo(0, canvas.height);
+                ctx.stroke();
+                return;
+            }
+            if (a_cm >= c_cm) return; // Wave formula domain bound
+
+            const a = a_cm * pxPerCm;
+            const c = c_cm * pxPerCm;
+            const b = Math.sqrt(c*c - a*a);
+
+            if (isDotted) ctx.setLineDash([5, 5]);
+            else ctx.setLineDash([]);
+
+            // Left branch
+            ctx.beginPath();
+            for(let y = -canvas.height/2; y <= canvas.height/2; y += 5) {
+                const x = -a * Math.sqrt(1 + (y*y)/(b*b));
+                if(y === -canvas.height/2) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Right branch
+            ctx.beginPath();
+            for(let y = -canvas.height/2; y <= canvas.height/2; y += 5) {
+                const x = a * Math.sqrt(1 + (y*y)/(b*b));
+                if(y === -canvas.height/2) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            
+            ctx.setLineDash([]); // Reset dash for subsequent drawing
+        }
+
+        function drawWaveCircles(cx, cy, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            const wlPx = wavelength * pxPerCm;
+            const maxRadius = Math.max(canvas.width, canvas.height);
+            
+            // Adjust radius based on time multiplied by wave speed logic
+            let r = (time * 20) % wlPx;
+            while(r < maxRadius) {
+                if(r > 0) {
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                r += wlPx;
+            }
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(canvas.width/2, canvas.height/2);
+
+            const s1x = (-separation / 2) * pxPerCm;
+            const s2x = (separation / 2) * pxPerCm;
+
+            if(isStarted) {
+                // Animation Time updated by speed modifier
+                if(!isPaused) time += 0.05 * waveSpeed;
+
+                // Draw expanding waves
+                drawWaveCircles(s1x, 0, "rgba(0, 150, 255, 0.2)");
+                drawWaveCircles(s2x, 0, "rgba(0, 150, 255, 0.2)");
+
+                const displayMode = lineDisplay.value;
+
+                // Draw antinodal lines (Constructive)
+                if (displayMode === 'both' || displayMode === 'antinodal') {
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = "#28a745"; 
+                    for (let n = 0; n * wavelength < separation; n++) {
+                        drawHyperbola((n * wavelength)/2, separation/2, false);
+                    }
+                }
+
+                // Draw nodal lines (Destructive)
+                if (displayMode === 'both' || displayMode === 'nodal') {
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = "#dc3545"; 
+                    for (let n = 0; (n + 0.5) * wavelength < separation; n++) {
+                        drawHyperbola(((n + 0.5) * wavelength)/2, separation/2, true);
+                    }
+                }
+            }
+
+            // Draw Sources S1 & S2
+            ctx.fillStyle = "blue";
+            ctx.beginPath(); ctx.arc(s1x, 0, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(s2x, 0, 6, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#333";
+            ctx.fillText("S₁", s1x - 10, -10);
+            ctx.fillText("S₂", s2x - 10, -10);
+
+            // Draw Point P
+            ctx.fillStyle = "purple";
+            ctx.beginPath(); ctx.arc(pX, pY, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#fff";
+            ctx.fillText("P", pX - 3, pY + 3);
+
+            // Draw faint line connecting S1 and S2 to point P
+            ctx.strokeStyle = "rgba(128, 0, 128, 0.4)";
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(s1x, 0); ctx.lineTo(pX, pY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(s2x, 0); ctx.lineTo(pX, pY); ctx.stroke();
+
+            ctx.restore();
+            requestAnimationFrame(render);
+        }
+
+        // Initialize calculations and begin frame loop
+        updateCalculations();
+        render();
+
+
+        /* =========================================
+           QUIZ LOGIC & GOOGLE FORMS SUBMISSION
+           ========================================= */
+        let sClass = "";
+        let sNumber = "";
+        let sMark = 0;
+        let currentQuestion = 0;
+
+        const quizData = [
+            { q: "What does a solid line represent in this simulation?", options: ["Antinodal line (Constructive)", "Nodal line (Destructive)", "Water current", "Reflection"], a: 0 },
+            { q: "What does a dotted line represent in this simulation?", options: ["Antinodal line (Constructive)", "Nodal line (Destructive)", "Water current", "Reflection"], a: 1 },
+            { q: "If the path difference is 2.0 λ, what type of interference is it?", options: ["Constructive", "Destructive", "Intermediate", "None of the above"], a: 0 },
+            { q: "If the path difference is 1.5 λ, what type of interference is it?", options: ["Constructive", "Destructive", "Intermediate", "None of the above"], a: 1 },
+            { q: "Increasing the separation between the sources will cause the nodal lines to:", options: ["Spread further apart", "Come closer together", "Stay exactly the same", "Disappear"], a: 1 },
+            { q: "Increasing the wavelength will cause the antinodal lines to:", options: ["Spread further apart", "Come closer together", "Stay exactly the same", "Rotate 90 degrees"], a: 0 },
+            { q: "The exact center line between the two identical in-phase sources is always:", options: ["A nodal line", "An antinodal line", "A region of zero amplitude", "A region of destructive interference"], a: 1 },
+            { q: "For exact destructive interference to occur, the path difference must be:", options: ["A whole number of wavelengths", "An odd number of half-wavelengths", "Zero", "Exactly 1 wavelength"], a: 1 },
+            { q: "What is the path difference at the midpoint directly between S1 and S2?", options: ["0", "0.5 λ", "1.0 λ", "Depends on the wavelength"], a: 0 },
+            { q: "Two waves constructively interfere when they meet:", options: ["Exactly in phase", "Exactly out of phase by 180°", "With different frequencies", "Moving in perpendicular directions"], a: 0 }
+        ];
+
+        // Quiz DOM Elements
+        const modal = document.getElementById('quizModal');
+        const openQuizBtn = document.getElementById('openQuizBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const startQuizBtn = document.getElementById('startQuizBtn');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const qText = document.getElementById('qText');
+        const qIndexDisp = document.getElementById('qIndexDisp');
+        const scoreDisp = document.getElementById('scoreDisp');
+        const retryBtn = document.getElementById('retryBtn');
+        const finishBtn = document.getElementById('finishBtn');
+
+        function switchScreen(screenId) {
+            document.querySelectorAll('#quiz-screens > div').forEach(el => el.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        openQuizBtn.addEventListener('click', () => {
+            modal.style.display = 'flex';
+            switchScreen('screen-reg');
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        startQuizBtn.addEventListener('click', () => {
+            const c = document.getElementById('sClass').value.trim();
+            const n = document.getElementById('sNumber').value.trim();
+            if(!c || !n) {
+                alert("Please input both Class and Class Number.");
+                return;
+            }
+            sClass = c;
+            sNumber = n;
+            sMark = 0;
+            currentQuestion = 0;
+            loadQuestion();
+            switchScreen('screen-q');
+        });
+
+        function loadQuestion() {
+            if(currentQuestion >= 10) {
+                scoreDisp.innerText = sMark;
+                switchScreen('screen-result');
+                return;
+            }
+            const q = quizData[currentQuestion];
+            qIndexDisp.innerText = currentQuestion + 1;
+            qText.innerText = q.q;
+            optionsContainer.innerHTML = '';
+            
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt;
+                btn.onclick = () => selectAnswer(index);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function selectAnswer(selectedIndex) {
+            if(selectedIndex === quizData[currentQuestion].a) {
+                sMark++;
+            }
+            currentQuestion++;
+            loadQuestion(); // Jump directly to next question without confirmation
+        }
+
+        retryBtn.addEventListener('click', () => {
+            sMark = 0;
+            currentQuestion = 0;
+            loadQuestion();
+            switchScreen('screen-q');
+        });
+
+        finishBtn.addEventListener('click', () => {
+            switchScreen('screen-saving');
+            submitToGoogleForm();
+        });
+
+        function submitToGoogleForm() {
+            // Target Google Form Action URL
+            const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfgNlSfL6W4pgFNmWbRCEB-cs7PxEIFNKXszHJebVdRf4QN-g/formResponse";
+            
+            const formData = new FormData();
+            formData.append('entry.753594098', sClass);
+            formData.append('entry.777103265', sNumber);
+            formData.append('entry.1173990498', sMark);
+
+            // Fetch to send data automatically without leaving page
+            fetch(formUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: formData
+            }).then(() => {
+                alert(`Quiz complete! Your score of ${sMark} has been submitted.`);
+                modal.style.display = 'none';
+            }).catch(err => {
+                console.error('Submission failed', err);
+                alert("There was a problem submitting your score. Please check your connection.");
+                modal.style.display = 'none';
+            });
+        }
+
+    </script>
+</body>
+</html>
