@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transverse Wave on a String</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-top: 0;
+        }
+        /* Layout Rows */
+        .row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .top-row {
+            background: #ffffff;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .bottom-row {
+            align-items: stretch;
+        }
+        /* Controls */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            margin-right: 20px;
+            margin-bottom: 10px;
+            min-width: 140px;
+        }
+        .control-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #444;
+            font-size: 14px;
+        }
+        .info-label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #0056b3;
+            background: #e9ecef;
+            padding: 8px;
+            border-radius: 4px;
+            margin-right: 15px;
+            margin-bottom: 10px;
+        }
+        .btn {
+            padding: 8px 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: background 0.2s;
+            height: 36px;
+        }
+        .btn-start { background: #28a745; }
+        .btn-start:hover { background: #218838; }
+        .btn-pause { background: #ffc107; color: #333; }
+        .btn-pause:hover { background: #e0a800; }
+        .btn-reset { background: #dc3545; }
+        .btn-reset:hover { background: #c82333; }
+        .btn-quiz { background: #17a2b8; margin-left: auto; }
+        .btn-quiz:hover { background: #138496; }
+
+        /* Canvas Columns */
+        .col {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fafafa;
+            width: 100%;
+            height: 300px;
+        }
+        .canvas-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* Quiz Modal */
+        #quizModal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0; top: 0; 
+            width: 100%; height: 100%; 
+            background-color: rgba(0,0,0,0.6);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal-content h2, .modal-content h3 { margin-top: 0; }
+        .modal-content input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0 20px 0;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .quiz-option {
+            background: #e9ecef;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .quiz-option:hover { background: #ced4da; }
+    </style>
+</head>
+<body>
+
+    <h1>Transverse Wave on a String Simulation</h1>
+
+    <!-- Upper Row: Controls -->
+    <div class="row top-row">
+        <div class="control-group">
+            <label>Amplitude: <span id="ampVal">5</span> cm</label>
+            <input type="range" id="amp" min="1" max="10" value="5" step="0.1">
+        </div>
+        <div class="control-group">
+            <label>Speed: <span id="speedVal">5</span> cm/s</label>
+            <input type="range" id="speed" min="2" max="20" value="5" step="0.1">
+        </div>
+        <div class="control-group">
+            <label>Frequency: <span id="freqVal">2</span> Hz</label>
+            <input type="range" id="freq" min="0.1" max="10" value="2" step="0.1">
+        </div>
+        <div class="control-group">
+            <label>String Length: <span id="lenVal">50</span> cm</label>
+            <input type="range" id="stringLen" min="10" max="50" value="50" step="1">
+        </div>
+        
+        <div class="info-label" id="waveLenDisplay">Wavelength: 2.50 cm</div>
+        <div class="info-label" id="distanceDisplay" style="color: #6f42c1;">Distance P-Q: 15.00 cm</div>
+        
+        <button class="btn btn-start" id="btnStart">Start</button>
+        <button class="btn btn-pause" id="btnPause">Pause / Resume</button>
+        <button class="btn btn-reset" id="btnReset">Reset</button>
+        <button class="btn btn-quiz" id="btnQuiz">Start a Quiz</button>
+    </div>
+
+    <!-- Lower Row: Simulation and Graphs -->
+    <div class="row bottom-row">
+        <div class="col left-col">
+            <div class="canvas-title">Experiment Simulation (Drag points P and Q left or right)</div>
+            <canvas id="simCanvas" width="600" height="300"></canvas>
+        </div>
+        <div class="col right-col">
+            <div class="canvas-title">Displacement - Time Graph</div>
+            <canvas id="graphCanvas" width="600" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- Quiz Modal Container -->
+    <div id="quizModal">
+        <div class="modal-content" id="quizContent"></div>
+    </div>
+
+    <script>
+        /* ================================
+           SIMULATION AND PHYSICS LOGIC
+           ================================ */
+        const simCanvas = document.getElementById('simCanvas');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const ctxSim = simCanvas.getContext('2d');
+        const ctxGraph = graphCanvas.getContext('2d');
+
+        let isPlaying = false;
+        let time = 0;
+        let lastTimestamp = 0;
+        let reqFrame;
+
+        let pxScale = 12; // Scale: 12 pixels = 1 cm
+        let P = { x_cm: 10, label: 'P', color: 'red' };
+        let Q = { x_cm: 25, label: 'Q', color: 'blue' };
+        let draggingPoint = null; 
+        
+        let historyData = []; // Stores {t, yP, yQ} to plot the graph
+
+        // Get Wave Equation Value y(x,t)
+        function getWaveY(x_cm, t) {
+            let amp = parseFloat(document.getElementById('amp').value);
+            let speed = parseFloat(document.getElementById('speed').value);
+            let freq = parseFloat(document.getElementById('freq').value);
+
+            let lambda = speed / freq;
+            let k = 2 * Math.PI / lambda;
+            let omega = 2 * Math.PI * freq;
+
+            // Wave propagates to the right
+            if (x_cm > speed * t) return 0;
+            return amp * Math.sin(omega * t - k * x_cm);
+        }
+
+        // Draw Left Canvas (Simulation)
+        function drawSim() {
+            ctxSim.clearRect(0, 0, simCanvas.width, simCanvas.height);
+            let cy = simCanvas.height / 2;
+            let stringLenCm = parseFloat(document.getElementById('stringLen').value);
+
+            // Background indicator text
+            ctxSim.fillStyle = '#999';
+            ctxSim.font = '14px Arial';
+            ctxSim.fillText("Vibrating Source", 10, cy - 130);
+
+            // Draw Vibrating Source Box
+            let sourceY = cy - getWaveY(0, time) * pxScale;
+            ctxSim.fillStyle = '#6c757d';
+            ctxSim.fillRect(0, sourceY - 15, 15, 30);
+
+            // Draw String
+            ctxSim.beginPath();
+            ctxSim.strokeStyle = '#333';
+            ctxSim.lineWidth = 3;
+            let max_x_px = stringLenCm * pxScale;
+            for (let x_px = 15; x_px <= max_x_px; x_px++) {
+                let x_cm = x_px / pxScale;
+                let y_cm = getWaveY(x_cm, time);
+                let y_px = cy - y_cm * pxScale;
+                if (x_px === 15) ctxSim.moveTo(x_px, y_px);
+                else ctxSim.lineTo(x_px, y_px);
+            }
+            ctxSim.stroke();
+
+            // Draw End boundary marker
+            ctxSim.fillStyle = '#aaa';
+            ctxSim.fillRect(max_x_px, cy - 50, 4, 100);
+
+            // Draw Distance indicator line between P and Q at the bottom
+            let minX_cm = Math.min(P.x_cm, Q.x_cm);
+            let maxX_cm = Math.max(P.x_cm, Q.x_cm);
+            let minX_px = minX_cm * pxScale;
+            let maxX_px = maxX_cm * pxScale;
+            let distY = simCanvas.height - 20;
+
+            if (P.x_cm <= stringLenCm && Q.x_cm <= stringLenCm) {
+                ctxSim.beginPath();
+                ctxSim.strokeStyle = '#888';
+                ctxSim.lineWidth = 2;
+                ctxSim.moveTo(minX_px, distY);
+                ctxSim.lineTo(maxX_px, distY);
+                ctxSim.moveTo(minX_px, distY - 6);
+                ctxSim.lineTo(minX_px, distY + 6);
+                ctxSim.moveTo(maxX_px, distY - 6);
+                ctxSim.lineTo(maxX_px, distY + 6);
+                ctxSim.stroke();
+
+                ctxSim.fillStyle = '#555';
+                ctxSim.font = '14px Arial';
+                ctxSim.textAlign = 'center';
+                let distStr = (maxX_cm - minX_cm).toFixed(2) + ' cm';
+                ctxSim.fillText(distStr, (minX_px + maxX_px) / 2, distY - 8);
+                ctxSim.textAlign = 'left'; // Reset
+            }
+
+            // Draw Points P and Q
+            drawPoint(P);
+            drawPoint(Q);
+
+            function drawPoint(pt) {
+                // Hide if pushed past string length
+                if (pt.x_cm > stringLenCm) return; 
+
+                let y_cm = getWaveY(pt.x_cm, time);
+                let x_px = pt.x_cm * pxScale;
+                let y_px = cy - y_cm * pxScale;
+                
+                // Highlight point if currently dragging
+                ctxSim.beginPath();
+                ctxSim.arc(x_px, y_px, pt === draggingPoint ? 9 : 7, 0, 2 * Math.PI);
+                ctxSim.fillStyle = pt.color;
+                ctxSim.fill();
+                ctxSim.lineWidth = 2;
+                ctxSim.strokeStyle = '#000';
+                ctxSim.stroke();
+                
+                ctxSim.fillStyle = 'black';
+                ctxSim.font = 'bold 16px Arial';
+                ctxSim.fillText(pt.label, x_px - 6, y_px - 18);
+            }
+        }
+
+        // Draw Right Canvas (Graph) left to right
+        function drawGraph() {
+            ctxGraph.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            let cy = graphCanvas.height / 2;
+
+            // Draw static grid lines
+            ctxGraph.lineWidth = 1;
+            ctxGraph.font = '12px Arial';
+            for (let y of [-10, -5, 0, 5, 10]) {
+                let y_px = cy - y * pxScale;
+                ctxGraph.beginPath();
+                ctxGraph.strokeStyle = y === 0 ? '#666' : '#eee';
+                ctxGraph.moveTo(0, y_px);
+                ctxGraph.lineTo(graphCanvas.width, y_px);
+                ctxGraph.stroke();
+                if (y !== 0) {
+                    ctxGraph.fillStyle = '#aaa';
+                    ctxGraph.fillText(y + ' cm', 5, y_px - 3);
+                }
+            }
+
+            if (historyData.length === 0) return;
+
+            let timeWindow = 5; // Show 5 seconds of graph
+            
+            // This enables the left-to-right drawing.
+            // If time < 5s, the window starts at 0, and graph grows from left to right.
+            // If time > 5s, the window shifts, pushing older data off to the left.
+            let windowStart = Math.max(0, time - timeWindow);
+            
+            function plotLine(key, color) {
+                ctxGraph.beginPath();
+                ctxGraph.strokeStyle = color;
+                ctxGraph.lineWidth = 2;
+                let started = false;
+
+                for (let d of historyData) {
+                    if (d.t < windowStart) continue; // Off screen
+                    
+                    let x_px = ((d.t - windowStart) / timeWindow) * graphCanvas.width;
+                    let y_px = cy - d[key] * pxScale;
+                    
+                    if (!started) { 
+                        ctxGraph.moveTo(x_px, y_px); 
+                        started = true; 
+                    } else { 
+                        ctxGraph.lineTo(x_px, y_px); 
+                    }
+                }
+                ctxGraph.stroke();
+            }
+
+            plotLine('yP', P.color);
+            plotLine('yQ', Q.color);
+
+            // Legend
+            ctxGraph.fillStyle = P.color;
+            ctxGraph.font = 'bold 14px Arial';
+            ctxGraph.fillText("Point P", graphCanvas.width - 60, 20);
+            ctxGraph.fillStyle = Q.color;
+            ctxGraph.fillText("Point Q", graphCanvas.width - 60, 40);
+        }
+
+        // Main Animation Loop
+        function animate(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            let dt = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            if (isPlaying) {
+                time += dt;
+                let yP = getWaveY(P.x_cm, time);
+                let yQ = getWaveY(Q.x_cm, time);
+                historyData.push({ t: time, yP: yP, yQ: yQ });
+                
+                // Prevent memory leak (clean up data older than the window)
+                if (historyData.length > 0 && historyData[0].t < time - 6) {
+                    historyData.shift(); 
+                }
+            }
+
+            drawSim();
+            drawGraph();
+            reqFrame = requestAnimationFrame(animate);
+        }
+
+        /* ================================
+           UI INTERACTION LOGIC
+           ================================ */
+           
+        function updateWavelengthDisplay() {
+            let s = parseFloat(document.getElementById('speed').value);
+            let f = parseFloat(document.getElementById('freq').value);
+            document.getElementById('waveLenDisplay').innerText = `Wavelength: ${(s/f).toFixed(2)} cm`;
+        }
+
+        function updateDistanceDisplay() {
+            let dist = Math.abs(P.x_cm - Q.x_cm);
+            document.getElementById('distanceDisplay').innerText = `Distance P-Q: ${dist.toFixed(2)} cm`;
+        }
+
+        // Dynamic Label Updates
+        ['amp', 'speed', 'freq', 'stringLen'].forEach(id => {
+            document.getElementById(id).addEventListener('input', function() {
+                document.getElementById(id + 'Val').innerText = this.value;
+                updateWavelengthDisplay();
+                
+                // Keep P and Q inside the string boundaries if it gets shortened
+                let max_len = parseFloat(document.getElementById('stringLen').value);
+                if (P.x_cm > max_len) P.x_cm = max_len;
+                if (Q.x_cm > max_len) Q.x_cm = max_len;
+                updateDistanceDisplay();
+                
+                if (!isPlaying) { drawSim(); drawGraph(); }
+            });
+        });
+
+        // Helper to get screen position of points
+        function getPointScreenCoords(pt) {
+            let y_cm = getWaveY(pt.x_cm, time);
+            return { x: pt.x_cm * pxScale, y: (simCanvas.height / 2) - y_cm * pxScale };
+        }
+
+        // Mouse Handlers for Dragging P and Q
+        simCanvas.addEventListener('mousedown', (e) => {
+            const rect = simCanvas.getBoundingClientRect();
+            const x_px = (e.clientX - rect.left) * (simCanvas.width / rect.width);
+            const y_px = (e.clientY - rect.top) * (simCanvas.height / rect.height);
+            
+            let posP = getPointScreenCoords(P);
+            let posQ = getPointScreenCoords(Q);
+            
+            // Check if mouse is near P or Q
+            let max_len = parseFloat(document.getElementById('stringLen').value);
+            if (P.x_cm <= max_len && Math.hypot(x_px - posP.x, y_px - posP.y) < 20) {
+                draggingPoint = P;
+            } else if (Q.x_cm <= max_len && Math.hypot(x_px - posQ.x, y_px - posQ.y) < 20) {
+                draggingPoint = Q;
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = simCanvas.getBoundingClientRect();
+            const x_px = (e.clientX - rect.left) * (simCanvas.width / rect.width);
+            const y_px = (e.clientY - rect.top) * (simCanvas.height / rect.height);
+
+            if (draggingPoint) {
+                let new_x_cm = x_px / pxScale;
+                let max_len = parseFloat(document.getElementById('stringLen').value);
+                
+                // Constrain drag boundaries
+                if (new_x_cm < 1.5) new_x_cm = 1.5; 
+                if (new_x_cm > max_len) new_x_cm = max_len;
+                
+                draggingPoint.x_cm = new_x_cm;
+                updateDistanceDisplay();
+                
+                if (!isPlaying) { drawSim(); drawGraph(); }
+            } else {
+                // Change cursor to grab if hovering over point
+                let posP = getPointScreenCoords(P);
+                let posQ = getPointScreenCoords(Q);
+                if (Math.hypot(x_px - posP.x, y_px - posP.y) < 20 || Math.hypot(x_px - posQ.x, y_px - posQ.y) < 20) {
+                    simCanvas.style.cursor = 'grab';
+                } else {
+                    simCanvas.style.cursor = 'default';
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (draggingPoint) {
+                draggingPoint = null;
+                simCanvas.style.cursor = 'default';
+            }
+        });
+
+        // Action Buttons
+        document.getElementById('btnStart').onclick = () => {
+            if (!isPlaying) {
+                isPlaying = true;
+                lastTimestamp = performance.now();
+                if (!reqFrame) reqFrame = requestAnimationFrame(animate);
+            }
+        };
+
+        document.getElementById('btnPause').onclick = () => {
+            if (isPlaying) isPlaying = false;
+            else {
+                isPlaying = true;
+                lastTimestamp = performance.now();
+            }
+        };
+
+        document.getElementById('btnReset').onclick = () => {
+            isPlaying = false;
+            time = 0;
+            P.x_cm = 10;
+            Q.x_cm = 25;
+            historyData = [];
+            
+            // Reset Sliders
+            document.getElementById('amp').value = 5; document.getElementById('ampVal').innerText = '5';
+            document.getElementById('speed').value = 5; document.getElementById('speedVal').innerText = '5';
+            document.getElementById('freq').value = 2; document.getElementById('freqVal').innerText = '2';
+            document.getElementById('stringLen').value = 50; document.getElementById('lenVal').innerText = '50';
+            updateWavelengthDisplay();
+            updateDistanceDisplay();
+            
+            drawSim();
+            drawGraph();
+        };
+
+        // Initial Draw
+        updateWavelengthDisplay();
+        updateDistanceDisplay();
+        drawSim();
+        drawGraph();
+
+        /* ================================
+           QUIZ & GOOGLE FORM LOGIC
+           ================================ */
+        const quizData = [
+            { q: "What is the highest point of a transverse wave called?", options: ["Crest", "Trough", "Amplitude", "Wavelength"], ans: 0 },
+            { q: "What is the lowest point of a transverse wave called?", options: ["Crest", "Trough", "Amplitude", "Wavelength"], ans: 1 },
+            { q: "The distance between two consecutive crests is called:", options: ["Amplitude", "Frequency", "Wavelength", "Speed"], ans: 2 },
+            { q: "The maximum displacement of a point from the rest position is called:", options: ["Wavelength", "Speed", "Frequency", "Amplitude"], ans: 3 },
+            { q: "Which formula properly relates wave speed (v), frequency (f), and wavelength (λ)?", options: ["v = f / λ", "v = f * λ", "v = λ / f", "v = f + λ"], ans: 1 },
+            { q: "In a transverse wave, how do the particles of the medium move?", options: ["Parallel to wave direction", "Perpendicular to wave direction", "In complete circles", "They do not move at all"], ans: 1 },
+            { q: "If the frequency of a wave increases while its speed remains constant, what happens to its wavelength?", options: ["Increases", "Decreases", "Stays the same", "Becomes zero"], ans: 1 },
+            { q: "What is the standard unit of frequency?", options: ["Meters (m)", "Meters/second (m/s)", "Hertz (Hz)", "Seconds (s)"], ans: 2 },
+            { q: "If a wave completes 10 full cycles in 2 seconds, its frequency is:", options: ["2 Hz", "5 Hz", "10 Hz", "20 Hz"], ans: 1 },
+            { q: "Which of the following is an example of a transverse wave?", options: ["Sound wave in air", "A wave on a string", "Pressure wave", "P-wave in an earthquake"], ans: 1 }
+        ];
+
+        let sClass = '', sNumber = '', sMark = 0, currentQIndex = 0;
+        const modal = document.getElementById('quizModal');
+        const content = document.getElementById('quizContent');
+
+        document.getElementById('btnQuiz').onclick = () => {
+            modal.style.display = 'block';
+            showIntro();
+        };
+
+        function showIntro() {
+            content.innerHTML = `
+                <h2>Start Physics Quiz</h2>
+                <p>Please enter your details before beginning the quiz.</p>
+                <label>Class:</label>
+                <input type="text" id="inClass" placeholder="e.g. 3A">
+                <label>Class Number:</label>
+                <input type="text" id="inNumber" placeholder="e.g. 15">
+                <button class="btn btn-start" id="btnStartQuiz">Start Quiz</button>
+                <button class="btn btn-reset" id="btnCancel">Cancel</button>
+            `;
+            document.getElementById('btnStartQuiz').onclick = () => {
+                sClass = document.getElementById('inClass').value.trim();
+                sNumber = document.getElementById('inNumber').value.trim();
+                if (!sClass || !sNumber) {
+                    alert("Please fill out both your Class and Class Number.");
+                    return;
+                }
+                sMark = 0;
+                currentQIndex = 0;
+                showQuestion();
+            };
+            document.getElementById('btnCancel').onclick = () => {
+                modal.style.display = 'none';
+            };
+        }
+
+        function showQuestion() {
+            if (currentQIndex >= quizData.length) {
+                showResults();
+                return;
+            }
+            let qItem = quizData[currentQIndex];
+            let optionsHTML = qItem.options.map((opt, i) => 
+                `<div class="quiz-option" onclick="handleAnswer(${i})">${opt}</div>`
+            ).join('');
+
+            content.innerHTML = `
+                <h3>Question ${currentQIndex + 1} of ${quizData.length}</h3>
+                <p style="font-size: 18px; margin-bottom: 20px;">${qItem.q}</p>
+                ${optionsHTML}
+            `;
+        }
+
+        window.handleAnswer = function(selectedIdx) {
+            if (selectedIdx === quizData[currentQIndex].ans) sMark++;
+            currentQIndex++;
+            showQuestion(); // Jump directly to next
+        };
+
+        function showResults() {
+            content.innerHTML = `
+                <h2>Quiz Completed!</h2>
+                <p style="font-size: 20px;">Your Score: <strong>${sMark} / ${quizData.length}</strong></p>
+                <p>Would you like to retry or finish the test and submit your score?</p>
+                <button class="btn btn-pause" id="btnRetry">Retry Test</button>
+                <button class="btn btn-start" id="btnFinish">Finish & Submit</button>
+            `;
+
+            document.getElementById('btnRetry').onclick = () => {
+                sMark = 0;
+                currentQIndex = 0;
+                showQuestion();
+            };
+
+            document.getElementById('btnFinish').onclick = () => {
+                submitDataToForm(sClass, sNumber, sMark);
+                modal.style.display = 'none';
+                alert("Thank you! Your score has been submitted.");
+            };
+        }
+
+        function submitDataToForm(cls, num, mark) {
+            const formURL = "https://docs.google.com/forms/d/e/1FAIpQLSdjR4Zk6LlHADxNe3tNXx4BBLHbBQMzBdDO5Xo_yE_eOPVMAA/formResponse";
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", cls);
+            formData.append("entry.777103265", num);
+            formData.append("entry.1173990498", mark);
+            formData.append("submit", "Submit");
+
+            fetch(formURL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                console.log("Data successfully posted to Google Forms");
+            }).catch(err => {
+                console.error("Submission Error", err);
+            });
+        }
+    </script>
+</body>
+</html>
