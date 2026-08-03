@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circuit Simulation & Quiz</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; background-color: #f4f4f9; }
+        
+        /* --- Upper Row Styles --- */
+        #upper-row { background-color: #333; color: white; padding: 15px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100; }
+        .control-group { display: flex; flex-direction: column; font-size: 13px; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 6px; }
+        .control-group label { font-weight: bold; margin-bottom: 5px; }
+        .dyn-res-container { display: flex; flex-wrap: wrap; gap: 8px; max-width: 140px; }
+        .res-item { display: flex; align-items: center; font-size: 11px; }
+        input[type="number"], input[type="range"] { padding: 4px; }
+        input[type="number"] { width: 45px; }
+        .wide-input { width: 65px !important; }
+        .button-group { display: flex; flex-direction: column; gap: 10px; margin-left: auto; }
+        button { padding: 8px 15px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; color: white; transition: background 0.2s; }
+        #btn-start { background-color: #4CAF50; } #btn-start:hover { background-color: #45a049; }
+        #btn-reset { background-color: #f44336; } #btn-reset:hover { background-color: #da190b; }
+        #btn-quiz { background-color: #2196F3; } #btn-quiz:hover { background-color: #0b7dda; }
+        .hint-text { color: #fff; font-size: 11px; margin-top: 5px; font-weight: normal; text-align: center; }
+
+        /* --- Lower Row Styles (Simulation Board) --- */
+        #lower-row { flex-grow: 1; position: relative; background: #e0e0e0; background-image: linear-gradient(90deg, transparent 95%, #ccc 95%), linear-gradient(transparent 95%, #ccc 95%); background-size: 20px 20px; overflow: hidden; }
+        
+        .component { 
+            position: absolute; background: white; border: 2px solid #333; border-radius: 8px; cursor: grab; user-select: none; 
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2); z-index: 10; transition: transform 0.2s; box-sizing: border-box;
+            width: 100px; height: 100px; 
+        }
+        .component:hover { z-index: 9999 !important; }
+        .component:active { cursor: grabbing; }
+        
+        /* Internal Counter-Rotating Text Wrapper */
+        .content-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; pointer-events: none; transition: transform 0.2s; text-align: center; }
+        .component .title { font-weight: bold; margin-bottom: 2px; font-size: 13px;}
+        .component .params { font-size: 11px; color: #555; font-weight: bold; margin-bottom: 2px; }
+        .component .icon { font-size: 24px; margin: 2px 0; }
+        .component .reading { color: #d32f2f; font-weight: bold; margin-top: 2px; font-size: 12px;}
+        
+        /* Floating calculation box */
+        .tooltip { visibility: hidden; background-color: rgba(30, 30, 30, 0.95); color: #fff; text-align: left; padding: 12px; border-radius: 6px; position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%); width: max-content; font-size: 13px; line-height: 1.5; opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; box-shadow: 0px 4px 8px rgba(0,0,0,0.6); z-index: 10000; }
+        .tooltip::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: rgba(30, 30, 30, 0.95) transparent transparent transparent; }
+        .component:hover .tooltip { visibility: visible; opacity: 1; }
+
+        /* Wires and Terminals */
+        .wire-h, .wire-v { position: absolute; background-color: #1976D2; cursor: grab; z-index: 1; }
+        .wire-h { width: 100px; height: 6px; }
+        .wire-v { width: 6px; height: 100px; }
+        
+        .terminal { position: absolute; width: 14px; height: 14px; border: 2px solid #fff; border-radius: 50%; z-index: 20; box-shadow: 0 0 3px rgba(0,0,0,0.5); box-sizing: border-box; transition: transform 0.1s; }
+        .terminal:hover { transform: scale(1.4); }
+        
+        /* Color Coded Polarity */
+        .t-p1 { background: #2196F3; } /* Blue = Negative / Left */
+        .t-p2 { background: #F44336; } /* Red = Positive / Right */
+        .wire-h .terminal, .wire-v .terminal { background: #ff9800; } /* Orange = Neutral Wires */
+        
+        /* Component Terminals (Extended outside the box) */
+        .component .t-left { left: -7px; top: calc(50% - 7px); }
+        .component .t-right { right: -7px; top: calc(50% - 7px); }
+
+        /* Wire Terminals */
+        .wire-h .t-left { left: -7px; top: calc(50% - 7px); cursor: ew-resize; }
+        .wire-h .t-right { right: -7px; top: calc(50% - 7px); cursor: ew-resize; }
+        .wire-v .t-top { top: -7px; left: calc(50% - 7px); cursor: ns-resize; }
+        .wire-v .t-bot { bottom: -7px; left: calc(50% - 7px); cursor: ns-resize; }
+        
+        /* --- Quiz Modal Styles --- */
+        #quiz-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 20000; justify-content: center; align-items: center; }
+        .quiz-container { background: white; padding: 30px; border-radius: 8px; width: 90%; max-width: 500px; text-align: left; }
+        .quiz-container h2 { text-align: center; }
+        .quiz-container input { padding: 10px; margin: 10px 0; width: calc(100% - 20px); box-sizing: border-box; }
+        .quiz-options { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        .quiz-option { background: #f1f1f1; padding: 10px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; font-size: 14px; }
+        .quiz-option:hover { background: #e0e0e0; }
+        .hidden { display: none !important; }
+        #quiz-question-container h3 { font-size: 16px; line-height: 1.4; }
+        .quiz-center-btns { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <!-- Upper Row: Controls -->
+    <div id="upper-row">
+        <div class="control-group">
+            <label>Battery: <span id="volt-val">12</span>V</label>
+            <input type="range" id="in-voltage" min="0" max="24" value="12">
+            <label style="margin-top:5px;">Batt. Res(Ω)</label>
+            <input type="number" id="in-batt-res" min="0" value="0">
+        </div>
+        <div class="control-group">
+            <label>No. Bulbs</label>
+            <input type="number" id="in-bulbs" min="0" value="2">
+            <label style="margin-top:5px;">Bulb Res(Ω)</label>
+            <div id="resistances-container" class="dyn-res-container"></div>
+        </div>
+        <div class="control-group">
+            <label>Ammeters</label>
+            <input type="number" id="in-ammeters" min="0" value="1">
+            <label style="margin-top:5px;">Ammeter Res(Ω)</label>
+            <div id="ammeters-res-container" class="dyn-res-container"></div>
+        </div>
+        <div class="control-group">
+            <label>Voltmeters</label>
+            <input type="number" id="in-voltmeters" min="0" value="1">
+            <label style="margin-top:5px;">Voltmeter Res(Ω)</label>
+            <div id="voltmeters-res-container" class="dyn-res-container"></div>
+        </div>
+        <div class="control-group">
+            <label>Horiz. Wires</label>
+            <input type="number" id="in-wires-h" min="0" value="10">
+            <label style="margin-top:5px;">Vert. Wires</label>
+            <input type="number" id="in-wires-v" min="0" value="10">
+        </div>
+        <div class="button-group">
+            <button id="btn-start">Start Simulation</button>
+            <button id="btn-reset">Reset Board</button>
+            <button id="btn-quiz">Start a quiz</button>
+            <span class="hint-text">💡 Dbl-Click to Rotate<br><span style="color:#64B5F6;">Blue</span>=Neg, <span style="color:#E57373;">Red</span>=Pos</span>
+        </div>
+    </div>
+
+    <!-- Lower Row: Circuit Board -->
+    <div id="lower-row"></div>
+
+    <!-- Quiz Modal -->
+    <div id="quiz-modal">
+        <div class="quiz-container">
+            <div id="quiz-setup">
+                <h2>Physics HKDSE Circuit Quiz</h2>
+                <input type="text" id="s-class" placeholder="Enter Class (e.g. 4A)">
+                <input type="number" id="s-number" placeholder="Enter Class Number (e.g. 15)">
+                <div class="quiz-center-btns">
+                    <button id="btn-start-quiz" style="background:#4CAF50;">Start Quiz</button>
+                    <button id="btn-close-quiz" style="background: #999;">Cancel</button>
+                </div>
+            </div>
+            <div id="quiz-question-container" class="hidden">
+                <h3 id="question-text">Question text</h3>
+                <div class="quiz-options" id="quiz-options"></div>
+                <p style="margin-top:20px; font-size:12px; color:#666; text-align: center;">Question <span id="q-current">1</span> / 10</p>
+            </div>
+            <div id="quiz-result" class="hidden">
+                <h2>Quiz Completed!</h2>
+                <p style="text-align: center;">Your Score: <strong id="score-display">0</strong> / 10</p>
+                <div class="quiz-center-btns">
+                    <button id="btn-retry-quiz" style="background:#2196F3;">Retry Quiz</button>
+                    <button id="btn-finish-quiz" style="background: #f44336;">Finish & Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const $ = id => document.getElementById(id);
+    const board = $('lower-row'), voltSlider = $('in-voltage'), voltVal = $('volt-val'), battResInput = $('in-batt-res');
+    const bulbsInput = $('in-bulbs'), bResContainer = $('resistances-container');
+    const ammetersInput = $('in-ammeters'), aResContainer = $('ammeters-res-container');
+    const voltmetersInput = $('in-voltmeters'), vResContainer = $('voltmeters-res-container');
+    const hWiresInput = $('in-wires-h'), vWiresInput = $('in-wires-v');
+    
+    voltSlider.addEventListener('input', (e) => { voltVal.innerText = e.target.value; updateBatteryLabels(); clearReadings(); });
+    battResInput.addEventListener('input', () => { updateBatteryLabels(); clearReadings(); });
+
+    function initBoard() {
+        board.innerHTML = '';
+        createComponent('Battery', '🔋', 'battery', 50, 50, '');
+        updateBatteryLabels();
+        syncBulbs(); syncAmmeters(); syncVoltmeters(); syncWires();
+    }
+
+    // Update Battery Real-Time Params
+    function updateBatteryLabels() {
+        let batt = board.querySelector('.component[data-type="battery"]');
+        if (batt) {
+            let v = $('in-voltage').value;
+            let r = $('in-batt-res').value || 0;
+            let paramsDiv = batt.querySelector('.params');
+            if (paramsDiv) paramsDiv.innerText = `${v}V, ${r}Ω`;
+        }
+    }
+
+    // Component Syncing
+    function syncComps(inputType, container, prefix, defVal, type, icon, readingText) {
+        const count = parseInt(inputType.value) || 0;
+        while (container.children.length < count) {
+            let idx = container.children.length + 1;
+            let div = document.createElement('div'); div.className = 'res-item';
+            div.innerHTML = `${prefix}${idx}:<input type="number" class="${prefix}-res-input ${prefix==='V'?'wide-input':''}" value="${defVal}" min="0">`;
+            div.querySelector('input').addEventListener('input', () => { updateRes(prefix, type, defVal); clearReadings(); });
+            container.appendChild(div);
+        }
+        while (container.children.length > count) container.removeChild(container.lastChild);
+
+        let comps = board.querySelectorAll(`.component[data-type="${type}"]`);
+        while (comps.length < count) {
+            let x = type === 'bulb' ? 200 + ((comps.length % 5) * 120) : 50 + (type === 'voltmeter' ? 120 : 0);
+            let y = type === 'bulb' ? 50 + (Math.floor(comps.length / 5) * 120) : 200 + (comps.length * 120);
+            let lbl = type === 'bulb' ? `💡 <span class="res-label">${defVal}</span>Ω` : icon;
+            let title = type === 'bulb' ? `Bulb ${comps.length + 1}` : (type === 'ammeter' ? 'Ammeter' : 'Voltmeter');
+            createComponent(title, lbl, type, x, y, readingText);
+            comps = board.querySelectorAll(`.component[data-type="${type}"]`);
+        }
+        while (comps.length > count) { board.removeChild(comps[comps.length - 1]); comps = board.querySelectorAll(`.component[data-type="${type}"]`); }
+        updateRes(prefix, type, defVal); clearReadings();
+    }
+
+    function updateRes(prefix, type, defVal) {
+        let inputs = document.querySelectorAll(`.${prefix}-res-input`);
+        let comps = board.querySelectorAll(`.component[data-type="${type}"]`);
+        inputs.forEach((inp, i) => {
+            if(comps[i]) {
+                let v = inp.value !== "" ? parseFloat(inp.value) : defVal;
+                comps[i].dataset.res = v;
+                if(type === 'bulb') { 
+                    let lbl = comps[i].querySelector('.res-label'); if(lbl) lbl.innerText = v; 
+                } else if (type === 'ammeter') {
+                    let paramsDiv = comps[i].querySelector('.params');
+                    if (paramsDiv) paramsDiv.innerText = `${v}Ω`;
+                }
+            }
+        });
+    }
+
+    function syncBulbs() { syncComps(bulbsInput, bResContainer, 'B', 2, 'bulb', '', 'Power: -- W'); }
+    function syncAmmeters() { syncComps(ammetersInput, aResContainer, 'A', 0, 'ammeter', 'Ⓐ', 'Current: -- A'); }
+    function syncVoltmeters() { syncComps(voltmetersInput, vResContainer, 'V', 1000000, 'voltmeter', 'Ⓥ', 'Reading: -- V'); }
+
+    function syncWires() {
+        const hc = parseInt(hWiresInput.value) || 0; let hw = board.querySelectorAll('.wire-h');
+        while (hw.length < hc) {
+            let el = document.createElement('div'); el.className = 'wire-h';
+            el.innerHTML = `<div class="terminal t-left"></div><div class="terminal t-right"></div>`;
+            el.style.left = (50 + (hw.length % 10) * 30) + 'px'; el.style.top = (450 + Math.floor(hw.length / 10) * 30) + 'px';
+            board.appendChild(el); hw = board.querySelectorAll('.wire-h');
+        }
+        while (hw.length > hc) { board.removeChild(hw[hw.length - 1]); hw = board.querySelectorAll('.wire-h'); }
+
+        const vc = parseInt(vWiresInput.value) || 0; let vw = board.querySelectorAll('.wire-v');
+        while (vw.length < vc) {
+            let el = document.createElement('div'); el.className = 'wire-v';
+            el.innerHTML = `<div class="terminal t-top"></div><div class="terminal t-bot"></div>`;
+            el.style.left = (850 - Math.floor(vw.length / 10) * 30) + 'px'; el.style.top = (50 + (vw.length % 10) * 30) + 'px';
+            board.appendChild(el); vw = board.querySelectorAll('.wire-v');
+        }
+        while (vw.length > vc) { board.removeChild(vw[vw.length - 1]); vw = board.querySelectorAll('.wire-v'); }
+    }
+
+    bulbsInput.addEventListener('input', syncBulbs); ammetersInput.addEventListener('input', syncAmmeters);
+    voltmetersInput.addEventListener('input', syncVoltmeters); hWiresInput.addEventListener('input', syncWires); vWiresInput.addEventListener('input', syncWires);
+
+    // Create Components With Wrapping to ensure text stays upright
+    function createComponent(title, iconHTML, type, x, y, readingText) {
+        const el = document.createElement('div'); el.className = 'component'; el.dataset.type = type; el.style.left = x + 'px'; el.style.top = y + 'px';
+        let terms = `
+            <div class="terminal t-left t-p1" title="Terminal 1 (Negative)"></div>
+            <div class="terminal t-right t-p2" title="Terminal 2 (Positive)"></div>`;
+        
+        el.innerHTML = `
+            ${terms}
+            <div class="content-wrapper">
+                <div class="title">${title}</div>
+                <div class="params"></div>
+                <div class="icon">${iconHTML}</div>
+                ${readingText !== '' ? `<div class="reading">${readingText}</div>` : ''}
+            </div>
+            ${type !== 'battery' ? `<div class="tooltip">Run simulation to view calculations.</div>` : ''}
+        `;
+        board.appendChild(el);
+    }
+
+    function clearReadings() {
+        board.querySelectorAll('.component').forEach(comp => {
+            const rd = comp.querySelector('.reading'), tt = comp.querySelector('.tooltip');
+            if(rd) {
+                if(comp.dataset.type === 'ammeter') rd.innerText = `Current: -- A`;
+                if(comp.dataset.type === 'bulb') rd.innerText = `Power: -- W`;
+                if(comp.dataset.type === 'voltmeter') rd.innerText = `Reading: -- V`;
+                if(tt) tt.innerHTML = `Run simulation to view step-by-step calculations.`;
+            }
+        });
+    }
+
+    /* ROTATION, DRAG & RESIZE */
+    let isDrag=false, dragEl=null, ox=0, oy=0;
+    let isRes=false, resEl=null, resEdge=null, sx=0, sy=0, sw=0, sh=0, sl=0, st=0;
+
+    // Double-Click to Rotate & Counter-Rotate text
+    board.addEventListener('dblclick', (e) => {
+        let comp = e.target.closest('.component');
+        if (comp) {
+            let rot = parseInt(comp.dataset.rot || 0) + 90;
+            if (rot >= 360) rot = 0;
+            comp.dataset.rot = rot;
+            comp.style.transform = `rotate(${rot}deg)`;
+            
+            // Counter-rotate the text content to stay perfectly upright
+            let wrapper = comp.querySelector('.content-wrapper');
+            if(wrapper) wrapper.style.transform = `rotate(${-rot}deg)`;
+
+            // Counter-rotate tooltip
+            let tt = comp.querySelector('.tooltip');
+            if (tt) { tt.style.transform = `translateX(-50%) rotate(${-rot}deg)`; }
+        }
+    });
+
+    board.addEventListener('mousedown', (e) => {
+        if (e.target.classList.contains('terminal')) {
+            let p = e.target.parentElement;
+            if (p.classList.contains('wire-h') || p.classList.contains('wire-v')) {
+                isRes=true; resEl=p; sx=e.clientX; sy=e.clientY; sw=p.offsetWidth; sh=p.offsetHeight; sl=p.offsetLeft; st=p.offsetTop;
+                if (e.target.classList.contains('t-left')) resEdge='left'; else if (e.target.classList.contains('t-right')) resEdge='right';
+                else if (e.target.classList.contains('t-top')) resEdge='top'; else resEdge='bot';
+                e.stopPropagation(); e.preventDefault(); return;
+            }
+        }
+        
+        let t = e.target.closest('.component, .wire-h, .wire-v');
+        if (t) {
+            isDrag=true; dragEl=t; 
+            let br = board.getBoundingClientRect();
+            let mouseX = e.clientX - br.left;
+            let mouseY = e.clientY - br.top;
+            
+            // Using style properties prevents snapping glitches when rotated
+            let styleLeft = parseFloat(t.style.left) || 0;
+            let styleTop = parseFloat(t.style.top) || 0;
+            ox = mouseX - styleLeft;
+            oy = mouseY - styleTop;
+            
+            if(dragEl.classList.contains('component')) dragEl.style.zIndex=1000; else dragEl.style.zIndex=500;
+            e.preventDefault(); 
+        }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isRes && resEl) {
+            let dx = e.clientX - sx, dy = e.clientY - sy;
+            if (resEl.classList.contains('wire-h')) {
+                if (resEdge==='right') resEl.style.width=Math.max(20, sw+dx)+'px';
+                else { let nw=Math.max(20, sw-dx); resEl.style.left=(sl+(sw-nw))+'px'; resEl.style.width=nw+'px'; }
+            } else if (resEl.classList.contains('wire-v')) {
+                if (resEdge==='bot') resEl.style.height=Math.max(20, sh+dy)+'px';
+                else { let nh=Math.max(20, sh-dy); resEl.style.top=(st+(sh-nh))+'px'; resEl.style.height=nh+'px'; }
+            }
+        } else if (isDrag && dragEl) {
+            let br = board.getBoundingClientRect();
+            let mouseX = e.clientX - br.left;
+            let mouseY = e.clientY - br.top;
+            dragEl.style.left = `${mouseX - ox}px`;
+            dragEl.style.top = `${mouseY - oy}px`;
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (dragEl) dragEl.style.zIndex = dragEl.classList.contains('component') ? '' : 1;
+        isDrag=false; dragEl=null; isRes=false; resEl=null;
+    });
+
+    /* NODAL MATH ENGINE */
+    function solveMatrix(A, b) {
+        let n = A.length;
+        for (let i = 0; i < n; i++) {
+            let maxEl = Math.abs(A[i][i]), maxRow = i;
+            for (let k = i + 1; k < n; k++) if (Math.abs(A[k][i]) > maxEl) { maxEl = Math.abs(A[k][i]); maxRow = k; }
+            let tmp = A[maxRow]; A[maxRow] = A[i]; A[i] = tmp; tmp = b[maxRow]; b[maxRow] = b[i]; b[i] = tmp;
+            if (Math.abs(A[i][i]) < 1e-12) continue;
+            for (let k = i + 1; k < n; k++) { let c = -A[k][i]/A[i][i]; for (let j=i; j<n; j++) { if(i===j) A[k][j]=0; else A[k][j]+=c*A[i][j]; } b[k]+=c*b[i]; }
+        }
+        let x = new Array(n).fill(0);
+        for (let i = n - 1; i >= 0; i--) {
+            if (Math.abs(A[i][i]) < 1e-12) { x[i] = 0; continue; }
+            x[i] = b[i] / A[i][i]; for (let k = i - 1; k >= 0; k--) b[k] -= A[k][i] * x[i];
+        } return x;
+    }
+
+    $('btn-start').addEventListener('click', () => {
+        let allTerms = board.querySelectorAll('.terminal'), tCoords = [];
+        
+        // Exact real-world coordinate mapping handles rotated math automatically
+        allTerms.forEach((t, i) => { t.dataset.tid = i; let r = t.getBoundingClientRect(); tCoords.push({x: r.left+r.width/2, y: r.top+r.height/2}); });
+
+        let parent = Array.from({length: allTerms.length}, (_, i) => i);
+        function find(i) { return parent[i] === i ? i : parent[i] = find(parent[i]); }
+        function union(i, j) { parent[find(i)] = find(j); }
+
+        for(let i=0; i<allTerms.length; i++) {
+            for(let j=i+1; j<allTerms.length; j++) {
+                let dx = tCoords[i].x - tCoords[j].x, dy = tCoords[i].y - tCoords[j].y;
+                if (dx*dx + dy*dy < 400) union(i, j); // Short if less than 20px apart
+            }
+        }
+
+        let roots = new Set(); allTerms.forEach((_, i) => roots.add(find(i)));
+        let batNeg = board.querySelector('.component[data-type="battery"] .t-p1');
+        let groundRoot = batNeg ? find(parseInt(batNeg.dataset.tid)) : -1;
+
+        let nodeMap = {}, nodeIndex = 1; if (groundRoot !== -1) nodeMap[groundRoot] = 0;
+        roots.forEach(r => { if (r !== groundRoot) nodeMap[r] = nodeIndex++; });
+        let numNodes = (groundRoot !== -1) ? roots.size - 1 : roots.size;
+
+        if(numNodes === 0) { alert("Nothing is connected!"); return; }
+
+        let A = Array.from({length: numNodes}, () => new Array(numNodes).fill(0)), b = new Array(numNodes).fill(0);
+        for(let i=0; i<numNodes; i++) A[i][i] += 1e-9;
+
+        let compData = [];
+        board.querySelectorAll('.component, .wire-h, .wire-v').forEach(c => {
+            let type = c.dataset.type || 'wire', terms = c.querySelectorAll('.terminal');
+            let dispR = 0, R = 1e-6; 
+            if(type === 'bulb' || type === 'ammeter') { dispR = parseFloat(c.dataset.res) || 0; R = Math.max(dispR, 1e-6); }
+            else if(type === 'voltmeter') { dispR = c.dataset.res !== undefined ? parseFloat(c.dataset.res) : 1000000; R = Math.max(dispR, 1e-6); }
+            
+            let n1 = type==='wire' ? nodeMap[find(parseInt(terms[0].dataset.tid))] : nodeMap[find(parseInt(c.querySelector('.t-p1').dataset.tid))];
+            let n2 = type==='wire' ? nodeMap[find(parseInt(terms[1].dataset.tid))] : nodeMap[find(parseInt(c.querySelector('.t-p2').dataset.tid))];
+            compData.push({ el: c, type, n1, n2, R, dispR });
+
+            if (type === 'battery') {
+                let V = parseFloat($('in-voltage').value) || 12, battR = Math.max(parseFloat($('in-batt-res').value) || 0, 1e-6);
+                let IN = V / battR, g = 1 / battR;
+                if (n1 > 0) { A[n1-1][n1-1] += g; b[n1-1] -= IN; } if (n2 > 0) { A[n2-1][n2-1] += g; b[n2-1] += IN; } if (n1 > 0 && n2 > 0) { A[n1-1][n2-1] -= g; A[n2-1][n1-1] -= g; }
+            } else {
+                let g = 1 / R;
+                if (n1 > 0) A[n1-1][n1-1] += g; if (n2 > 0) A[n2-1][n2-1] += g; if (n1 > 0 && n2 > 0) { A[n1-1][n2-1] -= g; A[n2-1][n1-1] -= g; }
+            }
+        });
+
+        let x = solveMatrix(A, b); 
+        compData.forEach(data => {
+            let { el, type, n1, n2, R, dispR } = data;
+            let v1 = n1 > 0 ? x[n1-1] : 0, v2 = n2 > 0 ? x[n2-1] : 0, vDrop = Math.abs(v1 - v2), I = vDrop / R;
+            let tt = el.querySelector('.tooltip'), rd = el.querySelector('.reading');
+            if (type === 'bulb') {
+                let P = vDrop * vDrop / R; rd.innerText = `Power: ${P.toFixed(2)} W`;
+                tt.innerHTML = `<strong>Circuit Math:</strong><br>Res = ${dispR} Ω<br>V Drop = ${vDrop.toFixed(2)} V<br>I (V/R) = ${I.toFixed(2)} A<br>P (I²R) = <strong>${P.toFixed(2)} W</strong>`;
+            } else if (type === 'ammeter') {
+                rd.innerText = I > 1000 ? `Current: Short!` : `Current: ${I.toFixed(2)} A`;
+                tt.innerHTML = `<strong>Ammeter Math:</strong><br>Int Res. = ${dispR} Ω<br>V Drop = ${vDrop.toFixed(4)} V<br>Current = <strong>${I.toFixed(2)} A</strong>`;
+            } else if (type === 'voltmeter') {
+                rd.innerText = `Reading: ${vDrop.toFixed(2)} V`;
+                tt.innerHTML = `<strong>Voltmeter Math:</strong><br>Int Res. = ${dispR} Ω<br>I Leaked = ${(I*1000).toFixed(4)} mA<br>Voltage = <strong>${vDrop.toFixed(2)} V</strong>`;
+            }
+        });
+    });
+
+    $('btn-reset').addEventListener('click', () => { $('in-voltage').value=12; voltVal.innerText=12; $('in-batt-res').value=0; bulbsInput.value=2; ammetersInput.value=1; voltmetersInput.value=1; hWiresInput.value=10; vWiresInput.value=10; initBoard(); });
+    initBoard();
+
+    /* HKDSE QUIZ DATA */
+    const questions = [
+        { q: "A voltmeter of finite resistance is connected in parallel with a resistor R, and an ammeter is connected in series with this combination. The measured resistance (V/I) will be:", options: ["Exactly equal to R", "Larger than R", "Smaller than R", "Independent of the voltmeter's resistance"], ans: 2 },
+        { q: "A uniform heating wire has a resistance of R. If it is stretched such that its length is doubled while its volume remains constant, what is its new resistance?", options: ["R / 2", "2R", "4R", "R"], ans: 2 },
+        { q: "Three identical bulbs X, Y, and Z are connected. X and Y are in parallel, and this combination is in series with Z. Which statement is correct?", options: ["All bulbs have the same brightness.", "X is brighter than Z.", "Z is brighter than X.", "Y is the brightest bulb."], ans: 2 },
+        { q: "The V-I graph of a filament bulb curves such that the slope (I on y-axis, V on x-axis) decreases as V increases. This indicates that:", options: ["Filament resistance decreases as temperature increases.", "Filament resistance increases as temperature increases.", "The bulb strictly obeys Ohm's law.", "Power dissipated remains constant."], ans: 1 },
+        { q: "Two identical resistors R1 and R2 are in series with a battery. If a switch connected in parallel with R2 is closed, what happens to the power dissipated by R1?", options: ["Decreases to zero", "Decreases but non-zero", "Remains unchanged", "Increases"], ans: 3 },
+        { q: "Two voltmeters V1 and V2 have internal resistances of 10 kΩ and 20 kΩ respectively. They are connected in series across a 12 V d.c. supply. What is the reading of V2?", options: ["4 V", "6 V", "8 V", "12 V"], ans: 2 },
+        { q: "A battery of e.m.f. 12 V and internal resistance 2 Ω is connected to a variable resistor R. If R is increased from 2 Ω to 10 Ω, the terminal p.d. across the battery:", options: ["Remains constant at 12 V", "Increases", "Decreases", "Drops to zero"], ans: 1 },
+        { q: "Two resistors of 2 Ω and 6 Ω are connected in parallel across a constant voltage source. What is the ratio of power dissipated in the 2 Ω to the 6 Ω resistor?", options: ["1 : 3", "3 : 1", "1 : 9", "9 : 1"], ans: 1 },
+        { q: "A wire of negligible resistance is connected across the terminals of a light bulb in a series circuit. What is a direct consequence?", options: ["Battery e.m.f. becomes zero", "Potential difference across the bulb becomes zero", "Total circuit current decreases", "All other components stop working"], ans: 1 },
+        { q: "A uniform resistance wire dissipates power P when connected across an ideal battery. If the wire is cut into two equal halves and connected in parallel across the same battery, what is the new total power dissipated?", options: ["P / 4", "P", "2P", "4P"], ans: 3 }
+    ];
+    let qIdx=0, sMark=0, sClass='', sNum='';
+    const mdl = $('quiz-modal'), sDiv = $('quiz-setup'), qDiv = $('quiz-question-container'), rDiv = $('quiz-result'), qTxt = $('question-text'), qOpts = $('quiz-options');
+    
+    $('btn-quiz').addEventListener('click', () => { mdl.style.display = 'flex'; sDiv.classList.remove('hidden'); qDiv.classList.add('hidden'); rDiv.classList.add('hidden'); });
+    $('btn-close-quiz').addEventListener('click', () => mdl.style.display = 'none');
+    $('btn-start-quiz').addEventListener('click', () => {
+        sClass=$('s-class').value.trim(); sNum=$('s-number').value.trim();
+        if(!sClass||!sNum) return alert("Enter Class and Number."); sMark=0; qIdx=0; sDiv.classList.add('hidden'); qDiv.classList.remove('hidden'); loadQ();
+    });
+
+    function loadQ() {
+        if (qIdx >= questions.length) { qDiv.classList.add('hidden'); rDiv.classList.remove('hidden'); $('score-display').innerText=sMark; return; }
+        qTxt.innerText = `${qIdx+1}. ${questions[qIdx].q}`; $('q-current').innerText = qIdx+1; qOpts.innerHTML = '';
+        questions[qIdx].options.forEach((opt, i) => {
+            let btn = document.createElement('div'); btn.className='quiz-option'; btn.innerText=opt;
+            btn.onclick = () => { if(i===questions[qIdx].ans) sMark++; qIdx++; setTimeout(loadQ, 150); }; qOpts.appendChild(btn);
+        });
+    }
+
+    $('btn-retry-quiz').addEventListener('click', () => { sMark=0; qIdx=0; rDiv.classList.add('hidden'); qDiv.classList.remove('hidden'); loadQ(); });
+    
+    // Submits purely in the background with proper URL-encoding header so Google Forms accepts it
+    $('btn-finish-quiz').addEventListener('click', () => {
+        const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSdcU8U4dPFlAsriwd03Kb67PwIeJxcdRdXMNkBXMz3iZipgBA/formResponse';
+        
+        const fd = new URLSearchParams();
+        fd.append('entry.753594098', sClass);
+        fd.append('entry.777103265', sNum);
+        fd.append('entry.1173990498', sMark);
+        
+        fetch(formUrl, { 
+            method: 'POST', 
+            mode: 'no-cors', 
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: fd.toString() 
+        }).then(() => {
+            alert("Quiz results have been successfully submitted in the background!");
+            mdl.style.display = 'none';
+        }).catch(e => {
+            console.error("Error submitting form", e);
+            alert("There was an error submitting the quiz.");
+        });
+    });
+</script>
+</body>
+</html>
