@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mixing Objects & Phase Changes Simulation</title>
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-hover: #0369a1;
+            --hot: #dc2626;
+            --cold: #2563eb;
+            --heater: #d97706;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #cbd5e1;
+            --success: #16a34a;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ROW STYLES */
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            flex: 1;
+            min-width: 300px;
+        }
+
+        h2 { margin-top: 0; font-size: 1.25rem; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+        h3 { margin-top: 0; font-size: 1.1rem; color: var(--primary); }
+
+        /* INPUTS */
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        input[type="number"], input[type="text"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        .val-display { font-weight: bold; color: var(--primary); }
+        .hot-border { border-left: 5px solid var(--hot); }
+        .heater-border { border-left: 5px solid var(--heater); }
+        .cold-border { border-left: 5px solid var(--cold); }
+        .action-border { border-left: 5px solid var(--primary); }
+
+        /* BUTTONS */
+        .btn-group { display: flex; flex-direction: column; gap: 10px; }
+        button {
+            padding: 12px 15px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        .btn-calc { background-color: var(--primary); }
+        .btn-reset { background-color: #64748b; }
+        .btn-quiz { background-color: var(--success); }
+
+        .hidden { display: none !important; }
+
+        /* OUTPUT STYLES */
+        .output-box { line-height: 1.6; font-size: 1.05em; }
+        .result-highlight {
+            font-size: 1.3em;
+            background: #e0f2fe;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--primary);
+            margin-bottom: 20px;
+        }
+        .step-container {
+            background-color: #f8fafc;
+            padding: 15px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        /* QUIZ MODAL STYLES */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 650px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+            animation: slideUp 0.3s ease-out forwards;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(40px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .quiz-question { font-size: 1.15em; font-weight: bold; margin-bottom: 20px; }
+        .quiz-option {
+            display: block;
+            padding: 15px;
+            background: #f8fafc;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .quiz-option:hover { 
+            background: #e0f2fe; 
+            border-color: var(--primary); 
+        }
+        /* Highlight style when an option is clicked */
+        .quiz-option.selected {
+            background: #bae6fd !important;
+            border-color: var(--primary) !important;
+        }
+        .quiz-option input { margin-right: 10px; pointer-events: none; }
+        
+        .nav-buttons { margin-top: 25px; display: flex; gap: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- UPPER ROW: Inputs -->
+    <div class="row" id="upper-row">
+        <!-- Energy Source Column -->
+        <div class="panel">
+            <h2>Energy Source</h2>
+            <div class="input-group">
+                <label>Method of Energy Gain:</label>
+                <select id="method-select" onchange="toggleMethod()">
+                    <option value="hot_object">Hot Object</option>
+                    <option value="heater">Heater</option>
+                </select>
+            </div>
+
+            <!-- Hot Object Panel -->
+            <div id="hot-panel" class="hot-border" style="padding-left: 10px;">
+                <div class="input-group">
+                    <label>Mass: <span id="hot-mass-val" class="val-display">1.0</span> kg</label>
+                    <input type="range" id="hot-mass" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateVal('hot-mass')">
+                </div>
+                <div class="input-group">
+                    <label>State:</label>
+                    <select id="hot-state" onchange="clampTemp('hot')">
+                        <option value="steam" selected>Steam</option>
+                        <option value="water">Water</option>
+                        <option value="ice">Ice</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Temperature (°C):</label>
+                    <input type="number" id="hot-temp" value="100" onchange="clampTemp('hot')">
+                </div>
+                <div class="input-group">
+                    <label>Heat Loss to Surroundings (J):</label>
+                    <input type="number" id="hot-loss" value="0" min="0">
+                </div>
+            </div>
+
+            <!-- Heater Panel -->
+            <div id="heater-panel" class="heater-border hidden" style="padding-left: 10px;">
+                <div class="input-group">
+                    <label>Power: <span id="heater-power-val" class="val-display">500</span> W</label>
+                    <input type="range" id="heater-power" min="100" max="1000" step="10" value="500" oninput="updateVal('heater-power')">
+                </div>
+                <div class="input-group">
+                    <label>Time: <span id="heater-time-val" class="val-display">500</span> s</label>
+                    <input type="range" id="heater-time" min="100" max="2000" step="10" value="500" oninput="updateVal('heater-time')">
+                </div>
+                <div class="input-group">
+                    <label>Heat Loss Type:</label>
+                    <select id="heater-loss-type">
+                        <option value="actual">Actual Amount (J)</option>
+                        <option value="percentage">Percentage (%)</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Heat Loss Value:</label>
+                    <input type="number" id="heater-loss" value="0" min="0">
+                </div>
+            </div>
+        </div>
+
+        <!-- Cold Object Column -->
+        <div class="panel cold-border">
+            <h2>Cold Object</h2>
+            <div class="input-group">
+                <label>Mass: <span id="cold-mass-val" class="val-display">1.0</span> kg</label>
+                <input type="range" id="cold-mass" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateVal('cold-mass')">
+            </div>
+            <div class="input-group">
+                <label>State:</label>
+                <select id="cold-state" onchange="clampTemp('cold')">
+                    <option value="steam">Steam</option>
+                    <option value="water">Water</option>
+                    <option value="ice" selected>Ice</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Temperature (°C):</label>
+                <input type="number" id="cold-temp" value="0" onchange="clampTemp('cold')">
+            </div>
+        </div>
+
+        <!-- Controls Column -->
+        <div class="panel action-border">
+            <h2>Actions</h2>
+            <div class="btn-group">
+                <button class="btn-calc" onclick="calculate()">Show Answer & Steps</button>
+                <button class="btn-reset" onclick="resetAll()">Reset</button>
+                <button class="btn-quiz" onclick="openQuiz()">Start a Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOWER ROW: Outputs -->
+    <div class="row" id="lower-row">
+        <!-- Output Panel -->
+        <div class="panel" id="output-panel">
+            <h2>Results & Calculation Steps</h2>
+            <div class="output-box" id="output-content">
+                <p style="color: #64748b;">Adjust the settings above and click "Show Answer & Steps" to compute the final temperature and state.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FLOATING QUIZ MODAL -->
+<div id="quiz-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <h2 style="margin-top:0;">HKDSE Physics Quiz: Heat & Matter</h2>
+        
+        <!-- Login Form -->
+        <div id="quiz-login">
+            <p>Please enter your details to start the 10-question quiz. Scores are submitted automatically upon completion.</p>
+            <div class="input-group">
+                <label>Class:</label>
+                <input type="text" id="s-class" placeholder="e.g. 4A">
+            </div>
+            <div class="input-group">
+                <label>Class Number:</label>
+                <input type="number" id="s-number" placeholder="e.g. 15">
+            </div>
+            <div class="nav-buttons">
+                <button class="btn-quiz" style="flex:1" onclick="startQuiz()">Begin Quiz</button>
+                <button class="btn-reset" style="flex:1" onclick="closeQuiz()">Close</button>
+            </div>
+        </div>
+
+        <!-- Quiz Questions -->
+        <div id="quiz-body" class="hidden">
+            <p style="color: #64748b; font-weight: bold; margin-bottom: 5px;">Question <span id="q-num">1</span> of 10</p>
+            <div id="q-text" class="quiz-question"></div>
+            <div id="q-options"></div>
+            <div class="nav-buttons">
+                <button class="btn-reset" style="flex:1" onclick="closeQuiz()">Cancel Quiz</button>
+            </div>
+        </div>
+
+        <!-- Quiz Results -->
+        <div id="quiz-result" class="hidden">
+            <h3 style="font-size: 1.5em; margin-bottom: 10px;">Quiz Completed!</h3>
+            <p style="font-size: 1.2em;">Your Mark: <strong style="font-size: 1.5em; color: var(--primary);" id="q-mark"></strong></p>
+            <p id="submit-status" style="color: var(--success); font-weight: bold;"></p>
+            <div class="nav-buttons">
+                <button class="btn-reset" style="flex:1" onclick="startQuiz()">Retry Test</button>
+                <button class="btn-calc" style="flex:1" onclick="finishTest()">Finish Test & Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* -----------------------------------------------------------
+       PHYSICS CONSTANTS & SIMULATION LOGIC
+    ----------------------------------------------------------- */
+    const C_WATER = 4200; // J/kg°C
+    const C_ICE = 2100;   // J/kg°C
+    const C_STEAM = 2000; // J/kg°C
+    const LF = 334000;    // J/kg (Latent heat of fusion)
+    const LV = 2260000;   // J/kg (Latent heat of vaporization)
+
+    // Boundaries of specific enthalpy (J/kg) relative to water at 0°C (h=0)
+    const H_ICE_0 = -LF;                // -334,000 J/kg
+    const H_WATER_0 = 0;                // 0 J/kg
+    const H_WATER_100 = C_WATER * 100;  // +420,000 J/kg
+    const H_STEAM_100 = H_WATER_100 + LV; // +2,680,000 J/kg
+
+    function updateVal(id) {
+        document.getElementById(id + '-val').innerText = document.getElementById(id).value;
+    }
+
+    function toggleMethod() {
+        const method = document.getElementById("method-select").value;
+        if (method === 'hot_object') {
+            document.getElementById("hot-panel").classList.remove("hidden");
+            document.getElementById("heater-panel").classList.add("hidden");
+        } else {
+            document.getElementById("hot-panel").classList.add("hidden");
+            document.getElementById("heater-panel").classList.remove("hidden");
+        }
+    }
+
+    function clampTemp(prefix) {
+        const state = document.getElementById(prefix + "-state").value;
+        const tempInput = document.getElementById(prefix + "-temp");
+        let t = parseFloat(tempInput.value) || 0;
+
+        if (state === "ice" && t > 0) t = 0;
+        if (state === "water" && t < 0) t = 0;
+        if (state === "water" && t > 100) t = 100;
+        if (state === "steam" && t < 100) t = 100;
+
+        tempInput.value = t;
+    }
+
+    function resetAll() {
+        document.getElementById("method-select").value = "hot_object";
+        
+        document.getElementById("hot-mass").value = "1.0";
+        document.getElementById("hot-state").value = "steam";
+        document.getElementById("hot-temp").value = "100";
+        document.getElementById("hot-loss").value = "0";
+
+        document.getElementById("heater-power").value = "500";
+        document.getElementById("heater-time").value = "500";
+        document.getElementById("heater-loss-type").value = "actual";
+        document.getElementById("heater-loss").value = "0";
+
+        document.getElementById("cold-mass").value = "1.0";
+        document.getElementById("cold-state").value = "ice";
+        document.getElementById("cold-temp").value = "0";
+
+        ['hot-mass', 'heater-power', 'heater-time', 'cold-mass'].forEach(updateVal);
+        toggleMethod();
+        closeQuiz();
+
+        document.getElementById("output-content").innerHTML = '<p style="color: #64748b;">Adjust the settings above and click "Show Answer & Steps" to compute the final temperature and state.</p>';
+    }
+
+    function enthalpyText(m, state, T, name) {
+        let txt = `${name} (${m} kg ${state} at ${T}°C):\n`;
+        if (state === 'ice') {
+            let e = m * (C_ICE * T - LF);
+            txt += `  H = m × (c_ice × T - l_f)\n`;
+            txt += `  H = ${m} × (${C_ICE} × ${T} - ${LF}) = ${e.toLocaleString()} J\n`;
+            return { e, txt };
+        } else if (state === 'water') {
+            let e = m * C_WATER * T;
+            txt += `  H = m × c_water × T\n`;
+            txt += `  H = ${m} × ${C_WATER} × ${T} = ${e.toLocaleString()} J\n`;
+            return { e, txt };
+        } else {
+            let e = m * (H_WATER_100 + LV + C_STEAM * (T - 100));
+            txt += `  H = m × (c_water × 100 + l_v + c_steam × (T - 100))\n`;
+            txt += `  H = ${m} × (${H_WATER_100} + ${LV} + ${C_STEAM} × (${T} - 100)) = ${e.toLocaleString()} J\n`;
+            return { e, txt };
+        }
+    }
+
+    function calculate() {
+        const method = document.getElementById("method-select").value;
+        const out = document.getElementById("output-content");
+        
+        // Cold Object
+        const mc = parseFloat(document.getElementById("cold-mass").value);
+        const sc = document.getElementById("cold-state").value;
+        const tc = parseFloat(document.getElementById("cold-temp").value);
+        
+        let steps = "--- Phase Enthalpy Method ---\n";
+        steps += "Define a baseline energy: Liquid Water at 0°C has Enthalpy (H) = 0 J.\n\n";
+        
+        steps += "1. Calculate initial enthalpy of cold object:\n";
+        let coldCalc = enthalpyText(mc, sc, tc, "Cold Object");
+        steps += coldCalc.txt + "\n";
+        
+        let totalEnthalpy = coldCalc.e;
+        let totalMass = mc;
+
+        if (method === "hot_object") {
+            const mh = parseFloat(document.getElementById("hot-mass").value);
+            const sh = document.getElementById("hot-state").value;
+            const th = parseFloat(document.getElementById("hot-temp").value);
+            const loss = parseFloat(document.getElementById("hot-loss").value) || 0;
+
+            steps += "2. Calculate initial enthalpy of hot object:\n";
+            let hotCalc = enthalpyText(mh, sh, th, "Hot Object");
+            steps += hotCalc.txt + "\n";
+
+            totalEnthalpy += hotCalc.e;
+            totalMass += mh;
+
+            steps += "3. Account for Heat Loss:\n";
+            steps += `  Heat Loss = ${loss} J\n`;
+            totalEnthalpy -= loss;
+
+        } else {
+            const P = parseFloat(document.getElementById("heater-power").value);
+            const t = parseFloat(document.getElementById("heater-time").value);
+            const lType = document.getElementById("heater-loss-type").value;
+            const lVal = parseFloat(document.getElementById("heater-loss").value) || 0;
+
+            const E_in = P * t;
+            let loss = lType === "percentage" ? E_in * (lVal / 100) : lVal;
+            const E_net = E_in - loss;
+
+            steps += "2. Calculate Energy supplied by Heater:\n";
+            steps += `  Total Energy = P × t = ${P} × ${t} = ${E_in} J\n`;
+            steps += `  Heat Loss = ${loss} J\n`;
+            steps += `  Net Energy Added = ${E_net} J\n\n`;
+
+            totalEnthalpy += E_net;
+        }
+
+        steps += "4. Calculate Total System Enthalpy & Specific Enthalpy (h):\n";
+        steps += `  Total Enthalpy (H_total) = ${totalEnthalpy.toLocaleString()} J\n`;
+        steps += `  Total Mass (M_total) = ${totalMass} kg\n`;
+        
+        const h_mix = totalEnthalpy / totalMass;
+        steps += `  Specific Enthalpy (h_mix) = H_total / M_total = ${h_mix.toLocaleString(undefined, {maximumFractionDigits:2})} J/kg\n\n`;
+
+        steps += "5. Determine Final State and Temperature from h_mix boundaries:\n";
+        steps += `  [Ice < 0°C] < ${H_ICE_0} <= [Ice/Water @ 0°C] <= ${H_WATER_0} < [Water > 0°C]\n`;
+        steps += `  [Water < 100°C] < ${H_WATER_100} <= [Water/Steam @ 100°C] <= ${H_STEAM_100} < [Steam > 100°C]\n\n`;
+
+        let T_f = 0;
+        let finalStateStr = "";
+
+        if (h_mix < H_ICE_0) {
+            T_f = (h_mix - H_ICE_0) / C_ICE;
+            finalStateStr = "Solid Ice";
+            steps += `  h_mix is less than ${H_ICE_0} J/kg, so the mixture is entirely ICE.\n`;
+            steps += `  T_final = (h_mix - (-334000)) / c_ice = ${T_f.toFixed(2)} °C`;
+        } 
+        else if (h_mix >= H_ICE_0 && h_mix <= H_WATER_0) {
+            T_f = 0;
+            let waterFrac = (h_mix - H_ICE_0) / LF;
+            let waterMass = waterFrac * totalMass;
+            let iceMass = totalMass - waterMass;
+            finalStateStr = `Mixture of Ice (${iceMass.toFixed(2)} kg) and Water (${waterMass.toFixed(2)} kg)`;
+            steps += `  h_mix is between ${H_ICE_0} and ${H_WATER_0} J/kg. State is undergoing melting.\n`;
+            steps += `  T_final = 0 °C\n`;
+            steps += `  Mass of Water = ((h_mix - (-334000)) / l_f) × M_total = ${waterMass.toFixed(2)} kg`;
+        }
+        else if (h_mix > H_WATER_0 && h_mix < H_WATER_100) {
+            T_f = h_mix / C_WATER;
+            finalStateStr = "Liquid Water";
+            steps += `  h_mix is between ${H_WATER_0} and ${H_WATER_100} J/kg. Mixture is entirely WATER.\n`;
+            steps += `  T_final = h_mix / c_water = ${T_f.toFixed(2)} °C`;
+        }
+        else if (h_mix >= H_WATER_100 && h_mix <= H_STEAM_100) {
+            T_f = 100;
+            let steamFrac = (h_mix - H_WATER_100) / LV;
+            let steamMass = steamFrac * totalMass;
+            let waterMass = totalMass - steamMass;
+            finalStateStr = `Mixture of Water (${waterMass.toFixed(2)} kg) and Steam (${steamMass.toFixed(2)} kg)`;
+            steps += `  h_mix is between ${H_WATER_100} and ${H_STEAM_100} J/kg. State is undergoing boiling.\n`;
+            steps += `  T_final = 100 °C\n`;
+            steps += `  Mass of Steam = ((h_mix - 420000) / l_v) × M_total = ${steamMass.toFixed(2)} kg`;
+        }
+        else if (h_mix > H_STEAM_100) {
+            T_f = 100 + (h_mix - H_STEAM_100) / C_STEAM;
+            finalStateStr = "Superheated Steam";
+            steps += `  h_mix is greater than ${H_STEAM_100} J/kg, so the mixture is entirely STEAM.\n`;
+            steps += `  T_final = 100 + (h_mix - 2680000) / c_steam = ${T_f.toFixed(2)} °C`;
+        }
+
+        if (T_f < -273.15) {
+            out.innerHTML = `<div class="result-highlight" style="border-color:red; color:red;">
+                <strong>Error:</strong> The specified heat loss is physically impossible (results in temperatures below Absolute Zero).
+            </div>`;
+            return;
+        }
+
+        out.innerHTML = `
+            <div class="result-highlight">
+                Final Temperature: <strong>${T_f.toFixed(2)} °C</strong><br>
+                Final State: <strong>${finalStateStr}</strong>
+            </div>
+            <h4>Step-by-Step Calculation:</h4>
+            <div class="step-container">${steps}</div>
+        `;
+    }
+
+    /* -----------------------------------------------------------
+       FLOATING QUIZ LOGIC & GOOGLE FORM SUBMISSION
+    ----------------------------------------------------------- */
+    let S_Class = "";
+    let S_Number = "";
+    let S_Mark = 0;
+    let currQ = 0;
+    let isProcessingAnswer = false; // Lock to prevent multi-clicking
+
+    const quizData = [
+        {
+            q: "Which of the following statements about specific latent heat of vaporization is correct?",
+            opts: [
+                "It is the energy required to raise the temperature of 1 kg of liquid by 1°C.",
+                "It is the energy required to change 1 kg of liquid to gas without a change in temperature.",
+                "It is the total thermal energy contained in a gas.",
+                "It is the energy released when a solid changes to a liquid."
+            ],
+            ans: 1
+        },
+        {
+            q: "1 kg of ice at 0°C is mixed with 1 kg of water at 100°C. Assuming no heat loss, what is the final state of the mixture? (l_f = 3.34×10⁵ J/kg, c_w = 4200 J/kg°C)",
+            opts: [
+                "A mixture of ice and water at 0°C",
+                "Entirely liquid water between 0°C and 100°C",
+                "A mixture of water and steam at 100°C",
+                "Solid ice below 0°C"
+            ],
+            ans: 1
+        },
+        {
+            q: "What is the standard SI unit for specific latent heat?",
+            opts: ["J kg⁻¹", "J kg⁻¹ K⁻¹", "W kg⁻¹", "J °C⁻¹"],
+            ans: 0
+        },
+        {
+            q: "A 2 kW heater is used to boil water. If it takes 100 s to completely vaporize 0.05 kg of water at 100°C, what is the specific latent heat of vaporization?",
+            opts: ["2.0 × 10⁵ J/kg", "4.0 × 10⁵ J/kg", "4.0 × 10⁶ J/kg", "2.0 × 10⁶ J/kg"],
+            ans: 2
+        },
+        {
+            q: "Why does steam at 100°C cause more severe burns than water at 100°C?",
+            opts: [
+                "Steam is at a higher temperature than water.",
+                "Steam has a higher specific heat capacity than water.",
+                "Steam releases a large amount of latent heat when it condenses on the skin.",
+                "Steam conducts heat faster than water."
+            ],
+            ans: 2
+        },
+        {
+            q: "When a substance changes from solid to liquid, its temperature remains constant. Why?",
+            opts: [
+                "The heat energy is destroyed.",
+                "The heat energy is used to break intermolecular bonds instead of increasing kinetic energy.",
+                "The specific heat capacity becomes infinite.",
+                "The substance loses heat to the surroundings at the same rate it is supplied."
+            ],
+            ans: 1
+        },
+        {
+            q: "If heat is lost to the surroundings during a specific heat capacity experiment of a hot metal block dropped into cold water, the calculated specific heat capacity of the metal will be...",
+            opts: [
+                "Higher than the actual value",
+                "Lower than the actual value",
+                "Equal to the actual value",
+                "Negative"
+            ],
+            ans: 1
+        },
+        {
+            q: "Heat loss to surroundings in a calorimetry experiment can be reduced by:",
+            opts: [
+                "Stirring the water vigorously",
+                "Using a metal container without a lid",
+                "Adding insulation (e.g., cotton wool) around the container",
+                "Increasing the time of the experiment"
+            ],
+            ans: 2
+        },
+        {
+            q: "Thermal equilibrium is reached when two mixed objects...",
+            opts: [
+                "Have the same mass",
+                "Contain the same amount of internal energy",
+                "Have the same specific heat capacity",
+                "Reach the same final temperature"
+            ],
+            ans: 3
+        },
+        {
+            q: "2 kg of water at 20°C is heated by a 1000W heater. Assuming 20% of energy is lost to the surroundings, how long does it take to reach 50°C? (c_w = 4200 J/kg°C)",
+            opts: ["200 s", "252 s", "315 s", "400 s"],
+            ans: 2
+        }
+    ];
+
+    function openQuiz() {
+        document.getElementById("quiz-modal").classList.remove("hidden");
+        document.getElementById("quiz-login").classList.remove("hidden");
+        document.getElementById("quiz-body").classList.add("hidden");
+        document.getElementById("quiz-result").classList.add("hidden");
+    }
+
+    function closeQuiz() {
+        document.getElementById("quiz-modal").classList.add("hidden");
+    }
+
+    function startQuiz() {
+        S_Class = document.getElementById("s-class").value.trim();
+        S_Number = document.getElementById("s-number").value.trim();
+
+        if (!S_Class || !S_Number) {
+            alert("Please enter both Class and Class Number.");
+            return;
+        }
+
+        S_Mark = 0;
+        currQ = 0;
+        
+        document.getElementById("quiz-login").classList.add("hidden");
+        document.getElementById("quiz-result").classList.add("hidden");
+        document.getElementById("quiz-body").classList.remove("hidden");
+        
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        isProcessingAnswer = false; // Reset lock for the new question
+        document.getElementById("q-num").innerText = currQ + 1;
+        document.getElementById("q-text").innerText = quizData[currQ].q;
+        
+        const optsDiv = document.getElementById("q-options");
+        optsDiv.innerHTML = "";
+
+        quizData[currQ].opts.forEach((optText, index) => {
+            // Using a div instead of a label to prevent the browser from firing double click events
+            const optDiv = document.createElement("div");
+            optDiv.className = "quiz-option";
+            
+            const radio = document.createElement("input");
+            radio.type = "radio";
+            radio.name = "q-opt";
+            radio.value = index;
+
+            optDiv.onclick = function() {
+                // If a click is already processing, ignore all further clicks
+                if (isProcessingAnswer) return;
+                isProcessingAnswer = true;
+
+                // Visually show it was selected
+                radio.checked = true;
+                optDiv.classList.add("selected");
+                
+                handleAnswerSelection(index);
+            };
+
+            optDiv.appendChild(radio);
+            optDiv.appendChild(document.createTextNode(optText));
+            optsDiv.appendChild(optDiv);
+        });
+    }
+
+    function handleAnswerSelection(selectedIndex) {
+        // Check if correct (1 mark per question)
+        if (selectedIndex === quizData[currQ].ans) {
+            S_Mark += 1;
+        }
+
+        currQ++;
+
+        // Increase delay to 800ms so the user can clearly see their selection before it jumps
+        setTimeout(() => {
+            if (currQ < quizData.length) {
+                loadQuestion();
+            } else {
+                showResult();
+            }
+        }, 800);
+    }
+
+    function showResult() {
+        document.getElementById("quiz-body").classList.add("hidden");
+        document.getElementById("quiz-result").classList.remove("hidden");
+        
+        // Output mark out of 10
+        document.getElementById("q-mark").innerText = S_Mark + " / 10";
+        document.getElementById("submit-status").innerText = "";
+    }
+
+    function finishTest() {
+        document.getElementById("submit-status").style.color = "var(--text)";
+        document.getElementById("submit-status").innerText = "Submitting scores to Google Form...";
+        
+        // Auto-fill Google Form via fetch
+        const formURL = "https://docs.google.com/forms/d/e/1FAIpQLSdz7oJIFy-b4qh5w5urxEatPZpVWwIiG9ly2vfSyfgCco6nZQ/formResponse";
+        const formData = new URLSearchParams();
+        
+        formData.append("entry.753594098", S_Class);
+        formData.append("entry.777103265", S_Number);
+        formData.append("entry.1173990498", S_Mark);
+
+        fetch(formURL, {
+            method: 'POST',
+            mode: 'no-cors', // Bypass CORS blocking
+            body: formData
+        }).then(() => {
+            document.getElementById("submit-status").style.color = "var(--success)";
+            document.getElementById("submit-status").innerText = "Scores submitted successfully!";
+            
+            // Automatically close the quiz after a short delay
+            setTimeout(() => {
+                closeQuiz();
+            }, 1500);
+
+        }).catch(err => {
+            document.getElementById("submit-status").style.color = "red";
+            document.getElementById("submit-status").innerText = "Network error. Failed to submit scores.";
+        });
+    }
+
+    // Initialize display on load
+    updateVal('hot-mass');
+    updateVal('cold-mass');
+    updateVal('heater-power');
+    updateVal('heater-time');
+</script>
+
+</body>
+</html>
