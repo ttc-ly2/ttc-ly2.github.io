@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Falling Object Energy Simulation</title>
+    <!-- Include Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #2196F3;
+            --bg-color: #f4f4f9;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: #333;
+        }
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .upper-row {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            align-items: center;
+            justify-content: space-between;
+        }
+        .controls-group {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .control-item {
+            display: flex;
+            flex-direction: column;
+            font-weight: bold;
+        }
+        .buttons-group button {
+            padding: 10px 15px;
+            margin-left: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .buttons-group button:hover { background-color: #1976D2; }
+        .buttons-group button.quiz-btn { background-color: #FF9800; }
+        .buttons-group button.quiz-btn:hover { background-color: #F57C00; }
+        
+        .lower-row {
+            display: flex;
+            gap: 20px;
+            height: 600px;
+        }
+        .left-col {
+            flex: 1;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+        }
+        .right-col {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .chart-container {
+            flex: 1;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 10px;
+            position: relative;
+            min-height: 250px;
+        }
+        #simCanvas {
+            width: 100%;
+            height: 100%;
+        }
+        #energy-display {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Quiz Modal Styles */
+        #quiz-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .quiz-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .quiz-content h2 { margin-top: 0; }
+        .quiz-input {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        .quiz-input input { padding: 8px; margin-top: 5px; }
+        .quiz-btn-block {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .quiz-btn-block:hover { background: #e0e0e0; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Upper Row: Controls -->
+    <div class="row upper-row">
+        <div class="controls-group">
+            <div class="control-item">
+                <label>Height: <span id="h-val">5</span> m</label>
+                <input type="range" id="input-height" min="3" max="10" step="0.5" value="5">
+            </div>
+            <div class="control-item">
+                <label>Air Resistance: <span id="r-val">0</span> N</label>
+                <input type="range" id="input-resistance" min="0" max="10" step="0.5" value="0">
+            </div>
+            <div class="control-item">
+                <label>Mass: <span id="m-val">3</span> kg</label>
+                <input type="range" id="input-mass" min="1" max="10" step="0.5" value="3">
+            </div>
+        </div>
+        <div class="buttons-group">
+            <button id="btn-start">Start</button>
+            <button id="btn-pause">Pause / Resume</button>
+            <button id="btn-reset">Reset</button>
+            <button id="btn-quiz" class="quiz-btn">Start a Quiz</button>
+        </div>
+    </div>
+
+    <!-- Lower Row: Simulation & Graphs -->
+    <div class="row lower-row">
+        <!-- Left Column: Simulation -->
+        <div class="left-col">
+            <canvas id="simCanvas"></canvas>
+            <div id="energy-display">
+                PE: <span id="disp-pe">0.0</span> J<br>
+                KE: <span id="disp-ke">0.0</span> J<br>
+                W<sub>air</sub>: <span id="disp-work">0.0</span> J
+            </div>
+        </div>
+        
+        <!-- Right Column: Graphs -->
+        <div class="right-col">
+            <div class="chart-container">
+                <canvas id="chartTime"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="chartDist"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div id="quiz-modal">
+        <div class="quiz-content">
+            <!-- Step 1: User Info -->
+            <div id="quiz-step-info">
+                <h2>Physics Quiz</h2>
+                <div class="quiz-input">
+                    <label>Class (S_Class):</label>
+                    <input type="text" id="input-class" placeholder="e.g. 4A">
+                </div>
+                <div class="quiz-input">
+                    <label>Class Number (S_Number):</label>
+                    <input type="number" id="input-number" placeholder="e.g. 15">
+                </div>
+                <button id="btn-begin-quiz" style="padding: 10px 20px; cursor: pointer;">Start Quiz</button>
+                <button id="btn-close-quiz" style="padding: 10px 20px; cursor: pointer; background: #ccc;">Cancel</button>
+            </div>
+
+            <!-- Step 2: Questions -->
+            <div id="quiz-step-question" class="hidden">
+                <h3 id="question-text">Question text</h3>
+                <div id="options-container"></div>
+                <p style="text-align: right; font-size: 12px; color: #666;">Question <span id="q-current">1</span>/10</p>
+            </div>
+
+            <!-- Step 3: Result -->
+            <div id="quiz-step-result" class="hidden">
+                <h2>Quiz Finished!</h2>
+                <p>Your Mark: <strong id="final-score">0</strong> / 10</p>
+                <div style="margin-top: 20px;">
+                    <button id="btn-retry" style="padding: 10px 15px; cursor: pointer;">Retry Test</button>
+                    <button id="btn-finish" style="padding: 10px 15px; cursor: pointer; background:#4CAF50; color:white;">Finish & Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Simulation Physics & Logic ---
+        const g = 9.81;
+        let sim = {
+            h0: 5, mass: 3, fair: 0,
+            y: 5, v: 0, t: 0, a: 0, dist: 0,
+            running: false, paused: false,
+            lastFrameTime: 0
+        };
+
+        // DOM Elements
+        const heightSlider = document.getElementById('input-height');
+        const resistanceSlider = document.getElementById('input-resistance');
+        const massSlider = document.getElementById('input-mass');
+        const hVal = document.getElementById('h-val');
+        const rVal = document.getElementById('r-val');
+        const mVal = document.getElementById('m-val');
+        
+        const dispPE = document.getElementById('disp-pe');
+        const dispKE = document.getElementById('disp-ke');
+        const dispWork = document.getElementById('disp-work');
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Update slider labels and sync variables
+        function updateInputs() {
+            sim.h0 = parseFloat(heightSlider.value);
+            sim.fair = parseFloat(resistanceSlider.value);
+            sim.mass = parseFloat(massSlider.value);
+            hVal.innerText = sim.h0;
+            rVal.innerText = sim.fair;
+            mVal.innerText = sim.mass;
+            if(!sim.running && !sim.paused) resetSimulation();
+        }
+        heightSlider.oninput = updateInputs;
+        resistanceSlider.oninput = updateInputs;
+        massSlider.oninput = updateInputs;
+
+        // Button Listeners
+        document.getElementById('btn-start').onclick = () => {
+            if(!sim.running) {
+                resetSimulation();
+                sim.running = true;
+                sim.paused = false;
+                sim.lastFrameTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            }
+        };
+        
+        document.getElementById('btn-pause').onclick = () => {
+            if(sim.running) sim.paused = !sim.paused;
+            if(!sim.paused && sim.running) {
+                sim.lastFrameTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            }
+        };
+
+        document.getElementById('btn-reset').onclick = resetSimulation;
+
+        function resetSimulation() {
+            sim.running = false;
+            sim.paused = false;
+            sim.t = 0;
+            sim.y = sim.h0;
+            sim.v = 0;
+            sim.dist = 0;
+            
+            // Calculate acceleration (a = g - f/m). Prevent floating up.
+            let a_net = g - (sim.fair / sim.mass);
+            sim.a = Math.max(0, a_net); 
+
+            resetCharts();
+            updateDisplayAndDraw();
+            updateCharts(true); // Plot the initial starting dot explicitly
+        }
+
+        // Main Loop
+        function gameLoop(timestamp) {
+            if (!sim.running || sim.paused) return;
+
+            let dt = (timestamp - sim.lastFrameTime) / 1000; 
+            sim.lastFrameTime = timestamp;
+
+            // Run simulation at 0.5x real speed for better observation
+            let timeStep = dt * 0.5;
+            if (timeStep > 0.1) timeStep = 0.1;
+
+            sim.t += timeStep;
+            sim.dist = 0.5 * sim.a * sim.t * sim.t;
+            sim.y = sim.h0 - sim.dist;
+            sim.v = sim.a * sim.t;
+
+            if (sim.y <= 0) {
+                sim.y = 0;
+                sim.dist = sim.h0;
+                sim.v = Math.sqrt(2 * sim.a * sim.h0); 
+                sim.running = false; 
+            }
+
+            updateDisplayAndDraw();
+
+            if (!sim.running) {
+                updateCharts(true); // Ensure final ground-hit data is tracked precisely
+            } else {
+                updateCharts();
+            }
+
+            if (sim.running) requestAnimationFrame(gameLoop);
+        }
+
+        function updateDisplayAndDraw() {
+            let PE = sim.mass * g * sim.y;
+            let KE = 0.5 * sim.mass * sim.v * sim.v;
+            let W_air = sim.fair * sim.dist;
+            
+            if(sim.y <= 0.001) PE = 0; 
+            if(sim.dist <= 0.001) W_air = 0;
+
+            dispPE.innerText = PE.toFixed(1);
+            dispKE.innerText = KE.toFixed(1);
+            dispWork.innerText = W_air.toFixed(1);
+
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Ground
+            ctx.fillStyle = '#8BC34A';
+            ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+            // Scale representation
+            let maxPhysicalHeight = 11; 
+            let pxPerMeter = (canvas.height - 80) / maxPhysicalHeight;
+            let ballY = (canvas.height - 40) - (sim.y * pxPerMeter) - 15; 
+
+            // Ball
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, ballY, 15 + (sim.mass*0.5), 0, Math.PI * 2);
+            ctx.fillStyle = '#E91E63';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.stroke();
+
+            // Height Ruler
+            ctx.fillStyle = '#ccc';
+            for(let i=0; i<=10; i++) {
+                let scaleY = (canvas.height - 40) - (i * pxPerMeter);
+                ctx.fillRect(10, scaleY, 15, 2);
+                ctx.font = '10px Arial';
+                ctx.fillText(i + 'm', 30, scaleY + 4);
+            }
+        }
+
+        // --- 2. Chart.js Setup ---
+        let ctxTime = document.getElementById('chartTime').getContext('2d');
+        let ctxDist = document.getElementById('chartDist').getContext('2d');
+
+        // Linear X-axis function builder
+        function getChartConfig(xTitle) {
+            return {
+                type: 'line',
+                data: {
+                    datasets: [
+                        { label: 'Total Energy (PE + KE)', borderColor: '#333', backgroundColor: '#333', data: [], borderWidth: 2 },
+                        { label: 'Potential Energy', borderColor: '#2196F3', backgroundColor: '#2196F3', data: [], borderWidth: 2 },
+                        { label: 'Kinetic Energy', borderColor: '#E91E63', backgroundColor: '#E91E63', data: [], borderWidth: 2 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false, // Prevents glitchy dot movement during data streaming
+                    scales: {
+                        x: {
+                            type: 'linear', // Use linear scale for proper mathematical plotting
+                            title: { display: true, text: xTitle, font: {weight: 'bold'} },
+                            beginAtZero: true
+                        },
+                        y: {
+                            title: { display: true, text: 'Energy (J)', font: {weight: 'bold'} },
+                            beginAtZero: true
+                        }
+                    },
+                    elements: {
+                        point: { radius: 0, hitRadius: 5 },
+                        line: { tension: 0.1 }
+                    },
+                    plugins: {
+                        legend: { labels: { boxWidth: 15 } }
+                    }
+                }
+            };
+        }
+
+        let chartTime = new Chart(ctxTime, getChartConfig('Time (s)'));
+        let chartDist = new Chart(ctxDist, getChartConfig('Distance Fallen (m)'));
+
+        let lastChartUpdate = -1;
+
+        function resetCharts() {
+            lastChartUpdate = -1; // Reset time tracker properly
+            [chartTime, chartDist].forEach(chart => {
+                chart.data.datasets.forEach(ds => ds.data = []);
+                chart.update();
+            });
+        }
+
+        function updateCharts(force = false) {
+            // Plot roughly every 0.05 sim seconds to avoid lagging UI, UNLESS forced
+            if (!force && sim.t - lastChartUpdate < 0.05 && sim.running) return;
+            lastChartUpdate = sim.t;
+
+            let PE = sim.mass * g * sim.y;
+            let KE = 0.5 * sim.mass * sim.v * sim.v;
+            
+            if(sim.y <= 0.001) PE = 0; 
+
+            // Total energy is now strictly PE + KE
+            let TotalE = PE + KE;
+
+            // Push X and Y values strictly into the datasets
+            chartTime.data.datasets[0].data.push({x: sim.t, y: TotalE});
+            chartTime.data.datasets[1].data.push({x: sim.t, y: PE});
+            chartTime.data.datasets[2].data.push({x: sim.t, y: KE});
+            chartTime.update();
+
+            chartDist.data.datasets[0].data.push({x: sim.dist, y: TotalE});
+            chartDist.data.datasets[1].data.push({x: sim.dist, y: PE});
+            chartDist.data.datasets[2].data.push({x: sim.dist, y: KE});
+            chartDist.update();
+        }
+
+        resetSimulation();
+
+        // --- 3. Quiz Module & Google Forms Auto-Submit ---
+        const questions = [
+            { q: "Which energy conversion predominantly occurs when an object falls freely from rest in a vacuum?", opts: ["Kinetic to Potential", "Potential to Kinetic", "Heat to Kinetic", "Potential to Heat"], ans: 1 },
+            { q: "What is the formula for the gravitational potential energy of an object near Earth's surface?", opts: ["1/2 mv²", "F × d", "mgh", "ma"], ans: 2 },
+            { q: "How does constant air resistance affect the total mechanical energy (PE + KE) of a falling object?", opts: ["It increases it", "It decreases it", "It remains unchanged", "It makes it fluctuate"], ans: 1 },
+            { q: "An object of mass 2 kg falls from a height of 5 m. Assuming no air resistance (g=9.81 m/s²), what is its kinetic energy just before hitting the ground?", opts: ["9.81 J", "49.05 J", "98.1 J", "100 J"], ans: 2 },
+            { q: "If an object falls with a constant air resistance force, the work done against air resistance is equal to:", opts: ["Air resistance force × distance fallen", "Mass × gravity × height", "Change in Kinetic Energy only", "Zero"], ans: 0 },
+            { q: "Which relationship describes the potential energy against distance fallen for a falling object?", opts: ["Parabolic increase", "Exponential decay", "Linear decrease", "Constant horizontal line"], ans: 2 },
+            { q: "Under a constant air resistance (less than weight), how does the acceleration of a falling object compare to g?", opts: ["Greater than g", "Equal to g", "Less than g and constant", "Decreases continuously to zero"], ans: 2 },
+            { q: "The combined Total Energy (PE + KE + Work done against air resistance) of a falling object is:", opts: ["Increasing over time", "Decreasing over time", "Always conserved (constant)", "Zero at the ground"], ans: 2 },
+            { q: "What happens to the kinetic energy vs time graph if air resistance is applied compared to a vacuum?", opts: ["The curve rises more steeply", "The curve rises more slowly", "It becomes a straight horizontal line", "It is identical"], ans: 1 },
+            { q: "Two objects of masses 1 kg and 5 kg fall from the same height in a vacuum. Which is true just before impact?", opts: ["The 5kg object is faster", "The 1kg object is faster", "They have the same speed", "The 1kg has higher Kinetic Energy"], ans: 2 }
+        ];
+
+        let S_Class = "", S_Number = "", S_Mark = 0;
+        let currentQIndex = 0;
+
+        const modal = document.getElementById('quiz-modal');
+        const stepInfo = document.getElementById('quiz-step-info');
+        const stepQuestion = document.getElementById('quiz-step-question');
+        const stepResult = document.getElementById('quiz-step-result');
+
+        document.getElementById('btn-quiz').onclick = () => {
+            modal.style.display = 'flex';
+            stepInfo.classList.remove('hidden');
+            stepQuestion.classList.add('hidden');
+            stepResult.classList.add('hidden');
+        };
+
+        document.getElementById('btn-close-quiz').onclick = () => {
+            modal.style.display = 'none';
+        };
+
+        document.getElementById('btn-begin-quiz').onclick = () => {
+            S_Class = document.getElementById('input-class').value.trim();
+            S_Number = document.getElementById('input-number').value.trim();
+            
+            if(!S_Class || !S_Number) {
+                alert("Please enter both Class and Class Number!");
+                return;
+            }
+            startQuizInstance();
+        };
+
+        function startQuizInstance() {
+            S_Mark = 0;
+            currentQIndex = 0;
+            stepInfo.classList.add('hidden');
+            stepResult.classList.add('hidden');
+            stepQuestion.classList.remove('hidden');
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            let qData = questions[currentQIndex];
+            document.getElementById('q-current').innerText = currentQIndex + 1;
+            document.getElementById('question-text').innerText = (currentQIndex + 1) + ". " + qData.q;
+            
+            let optsContainer = document.getElementById('options-container');
+            optsContainer.innerHTML = ''; 
+            
+            qData.opts.forEach((optText, index) => {
+                let btn = document.createElement('button');
+                btn.className = 'quiz-btn-block';
+                btn.innerText = String.fromCharCode(65 + index) + ". " + optText;
+                btn.onclick = () => handleAnswer(index);
+                optsContainer.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(selectedIndex) {
+            if (selectedIndex === questions[currentQIndex].ans) S_Mark++;
+            currentQIndex++;
+            
+            setTimeout(() => {
+                if (currentQIndex < questions.length) {
+                    loadQuestion();
+                } else {
+                    showResults();
+                }
+            }, 150);
+        }
+
+        function showResults() {
+            stepQuestion.classList.add('hidden');
+            stepResult.classList.remove('hidden');
+            document.getElementById('final-score').innerText = S_Mark;
+        }
+
+        document.getElementById('btn-retry').onclick = startQuizInstance;
+        
+        document.getElementById('btn-finish').onclick = () => {
+            const formBaseURL = "https://docs.google.com/forms/d/e/1FAIpQLSfkC-S5KkA_Hub7PCsKQg70XQJ7yvn1nFVzTD6ELFfAbXaRQw/formResponse";
+            
+            const formData = new URLSearchParams();
+            formData.append("entry.753594098", S_Class);
+            formData.append("entry.777103265", S_Number);
+            formData.append("entry.1173990498", S_Mark);
+
+            let btnFinish = document.getElementById('btn-finish');
+            btnFinish.innerText = "Submitting...";
+            btnFinish.disabled = true;
+
+            fetch(formBaseURL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
+            }).then(() => {
+                alert("Quiz finished and score submitted successfully!");
+                btnFinish.innerText = "Finish & Submit";
+                btnFinish.disabled = false;
+                modal.style.display = 'none';
+            }).catch(error => {
+                console.error("Error submitting form:", error);
+                alert("There was an issue submitting your score. Please check your connection.");
+                btnFinish.innerText = "Finish & Submit";
+                btnFinish.disabled = false;
+            });
+        };
+
+    </script>
+</body>
+</html>
